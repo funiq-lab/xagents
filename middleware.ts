@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/dist/server/web/spec-extension/request'
 import { i18nRouter } from 'next-i18n-router'
 import i18nConfig from './i18nConfig'
 
-export function proxy(request: NextRequest) {
+export function middleware(request: NextRequest) {
   return i18nRouter(request, i18nConfig)
 }
 

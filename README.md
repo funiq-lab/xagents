@@ -1,7 +1,21 @@
-# Tauri + React + Typescript
+# XAgents
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+[English Version](./README_EN.md)
 
-## Recommended IDE Setup
+**XAgents** 是一个跨平台桌面应用，用于集中管理多个 AI 编程工具（VSCode、Cursor、Claude Code、Codex 等），包括项目组织、会话跟踪和进程监控。
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+## 核心功能
+- **项目集中管理**：创建、编辑、删除项目，支持分组与标签归类，并可按多条件组合筛选。
+- **工具一键启动**：针对VSCode、Cursor、Claude Code、Codex提供命令级启动与窗口切换逻辑，避免重复打开实例。
+- **实时进程监控**：轮询获取CPU/内存、运行时长、CLI输出与任务进度，异常退出即时同步。
+- **可视化Dashboard**：以卡片视图展示项目概况、活跃会话、资源占用及最后输出摘要。
+- **通知与告警**：任务完成、失败与资源告警通过系统通知与应用内提示双通道发送。
+
+## 项目目标
+1. 降低多项目、多工具并行开发的窗口管理成本。
+2. 在macOS、Windows、Linux上提供一致的启动与监控体验。
+3. 为未来扩展更多AI工具与自定义规则预留接口。
+
+## 当前进度
+- 已完成：尚未开始开发，实现进度为0%。
+- 进行中：尚未开始开发，实现进度为0%。
