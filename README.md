@@ -16,6 +16,64 @@
 2. 在macOS、Windows、Linux上提供一致的启动与监控体验。
 3. 为未来扩展更多AI工具与自定义规则预留接口。
 
-## 当前进度
-- 已完成：尚未开始开发，实现进度为0%。
-- 进行中：尚未开始开发，实现进度为0%。
+## 技术栈
+
+- **前端**: Next.js 15 (SSG) + React 19 + TypeScript + Tailwind CSS v4
+- **UI组件**: shadcn/ui + Radix UI
+- **状态管理**: Zustand
+- **数据存储**: IndexedDB (Dexie.js)
+- **国际化**: i18next
+- **桌面框架**: Tauri v2
+- **后端**: Rust + sysinfo (进程监控)
+
+## 开发指南
+
+### 前置要求
+
+参考 [Tauri v2 前置要求](https://v2.tauri.app/zh-cn/start/prerequisites/)，请确保：
+
+- **通用依赖**：Node.js ≥ 18、pnpm ≥ 8、Rust 稳定版（通过 `rustup`）、系统 WebView 运行时。
+- **macOS**：安装 Xcode Command Line Tools，建议通过 Homebrew 安装 `rustup`、`pnpm`，并启用 `codesign`。
+- **Windows**：安装 Visual Studio 2022 Build Tools（带「桌面开发（C++）」工作负载）、WebView2 Runtime、启用开发者模式以便 sideload MSIX。
+- **Linux**：glibc ≥ 2.28，`pkg-config`、`libssl-dev` 等构建依赖；基于发行版安装 `webkit2gtk`/`webkitgtk`、`openssl`、`dbus` 等包。
+
+使用 `pnpm tauri info` 可快速检查环境是否满足要求。
+
+### 安装依赖
+
+```bash
+pnpm i
+```
+
+该命令会安装前端依赖及 `@tauri-apps/cli`、`@tauri-apps/api` 等桌面端组件，无需额外全局安装。
+
+### 开发与调试
+
+1. 启动开发模式：
+    ```bash
+    pnpm tauri dev
+    ```
+    该命令会同时运行前端构建与 Tauri 后端，并在检测到源文件变更时自动重新打包（参考 [Develop 指南](https://v2.tauri.app/develop/)）。
+2. 可通过 `pnpm tauri dev -- --config-file src-tauri/tauri.conf.json` 指定自定义配置，或设置 `TAURI_DEVTOOLS=1` 打开开发者工具。
+3. 若需在 CI 中验证，可结合 `pnpm tauri info` / `pnpm tauri driver` 脚本执行集成测试。
+
+### 发布与分发
+
+依据 [Distribute 指南](https://v2.tauri.app/distribute/)，使用以下流程生成各平台安装包：
+
+```bash
+pnpm tauri build
+```
+
+- 该命令会产出 dmg/msi/msix/AppImage 等制品，输出位于 `src-tauri/target/release/bundle/`。
+- 若需要签名：
+  - macOS 使用 `codesign`/`notarytool`；
+  - Windows 使用 `signtool` 或 `pnpm tauri signer sign --certificate <path>`；
+  - Linux 可使用 GPG 对 AppImage/压缩包进行签名。
+- 通过 `pnpm tauri signer verify <bundle>` 校验签名后，即可上传到应用商店或发布页。
+
+如需自定义图标、应用标识或多架构构建，请更新 `src-tauri/tauri.conf.json` 并重新执行 `pnpm tauri build`。
+
+## 许可证
+
+MIT License

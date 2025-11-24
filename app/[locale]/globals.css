@@ -1,4 +1,6 @@
 @import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
 @plugin "@tailwindcss/typography";
 
 :root {
@@ -162,7 +164,6 @@
   --shadow-2xl: var(--shadow-2xl);
 }
 
-
 /* Prose styling for light mode */
 .prose {
   --tw-prose-body: var(--foreground);
@@ -235,4 +236,13 @@
   --tw-prose-invert-pre-bg: var(--muted);
   --tw-prose-invert-th-borders: var(--border);
   --tw-prose-invert-td-borders: var(--border);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }

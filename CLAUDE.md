@@ -103,3 +103,6 @@ For component development guidelines, see `docs/references/components.md`
 - Use strict mode
 - Avoid using `any`
 - Add types for props and function parameters
+
+### Documents management
+- Automatically generated documents should be written to the ./tmp/
