@@ -53,8 +53,10 @@ export default async function RootLayout({
             <EventListeners />
             <AppSidebar locale={locale} />
             <SidebarInset>
-              <PageHeader />
-              {children}
+              <div className="flex flex-col size-full overflow-hidden">
+                <PageHeader />
+                {children}
+              </div>
             </SidebarInset>
 
           </Providers>
