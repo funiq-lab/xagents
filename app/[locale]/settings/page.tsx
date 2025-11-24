@@ -138,7 +138,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-4xl space-y-6">
+    <div className="container mx-auto p-6 max-w-4xl flex flex-col gap-4 overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => router.back()}>
@@ -150,7 +150,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="tools" className="space-y-6">
+      <Tabs defaultValue="tools" className="space-y-6 overflow-hidden flex-1">
         <TabsList>
           <TabsTrigger value="tools">{t('settings.tools')}</TabsTrigger>
           <TabsTrigger value="notification">{t('settings.notification')}</TabsTrigger>
@@ -158,7 +158,7 @@ export default function SettingsPage() {
         </TabsList>
 
         {/* Tool configuration */}
-        <TabsContent value="tools" className="space-y-4">
+        <TabsContent value="tools" className="space-y-4 overflow-y-auto">
           <Card>
             <CardHeader>
               <CardTitle>{t('settings.card_title')}</CardTitle>
@@ -391,11 +391,6 @@ export default function SettingsPage() {
                   <span className="font-semibold">{t('settings.about_version_label')}</span>
                   {' '}
                   0.1.0
-                </p>
-                <p className="text-sm">
-                  <span className="font-semibold">{t('settings.about_stack_label')}</span>
-                  {' '}
-                  Tauri 2.x + React 19 + Next.js 15
                 </p>
                 <p className="text-sm text-muted-foreground">
                   {t('settings.about_summary')}

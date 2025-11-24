@@ -1,11 +1,8 @@
 import { Roboto } from 'next/font/google'
 import { notFound } from 'next/navigation'
 import React from 'react'
-import { AppSidebar } from '@/components/AppSidebar'
 import { EventListeners } from '@/components/EventListeners'
-import { PageHeader } from '@/components/PageHeader'
 import Providers from '@/components/Providers'
-import { SidebarInset } from '@/components/ui/sidebar'
 import { Toaster } from '@/components/ui/sonner'
 import i18nConfig from '@/i18nConfig'
 import { languages } from '@/plugins/i18n/settings'
@@ -48,18 +45,11 @@ export default async function RootLayout({
   return (
     <React.StrictMode>
       <html lang={locale} className={roboto.variable} suppressHydrationWarning>
-        <body className="w-full h-dvh overflow-hidden">
+        <body className="w-full h-svh overflow-hidden">
           <Providers>
-            <EventListeners />
-            <AppSidebar locale={locale} />
-            <SidebarInset>
-              <div className="flex flex-col size-full overflow-hidden">
-                <PageHeader />
-                {children}
-              </div>
-            </SidebarInset>
-
+            {children}
           </Providers>
+          <EventListeners />
           <Toaster richColors position="top-right" />
         </body>
       </html>

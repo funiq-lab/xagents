@@ -31,7 +31,6 @@
   "about_title": "关于 XAgents",
   "about_description": "查看版本信息与项目说明。",
   "about_version_label": "版本：",
-  "about_stack_label": "技术栈：",
   "about_summary": "XAgents 是一个跨平台的 AI 编程工具管理器，帮助集中管理项目与工具。",
   "about_features_title": "功能特性：",
   "about_features": [

@@ -5,7 +5,6 @@ import { AppProgressProvider as ProgressProvider } from '@bprogress/next'
 import { ThemeProvider } from 'next-themes'
 import { useParams } from 'next/navigation'
 import { I18nextProvider } from 'react-i18next'
-import { SidebarProvider } from '@/components/ui/sidebar'
 import i18next from '@/plugins/i18n/i18next'
 import { setDayJsLang } from '@/utils/time'
 import { MessageBoxProvider } from './MessageBox'
@@ -21,15 +20,11 @@ export default function Providers({ children }: ProvidersProps) {
 
     <I18nextProvider i18n={i18next}>
       <ProgressProvider options={{ showSpinner: false }}>
-
         <ThemeProvider attribute="class" enableSystem>
           <MessageBoxProvider>
-            <SidebarProvider defaultOpen={false}>
-              {children}
-            </SidebarProvider>
+            {children}
           </MessageBoxProvider>
         </ThemeProvider>
-
       </ProgressProvider>
     </I18nextProvider>
 

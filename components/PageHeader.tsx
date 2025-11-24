@@ -5,7 +5,6 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from '@/components/ui/breadcrumb'
 import { Separator } from '@/components/ui/separator'
-import { SidebarTrigger } from '@/components/ui/sidebar'
 import LangSelect from './LangSelect'
 import ThemeModeToggle from './ThemeModeToggle'
 
@@ -26,9 +25,7 @@ export function PageHeader() {
   }, [pathname, labelMap])
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4 bg-background">
-      <SidebarTrigger className="-ml-1" />
-      <Separator orientation="vertical" className="mr-2 h-4" />
+    <header className="bg-background sticky top-0 flex shrink-0 items-center gap-2 border-b p-2">
       <Breadcrumb className="flex-1">
         <BreadcrumbList>
           <BreadcrumbItem>

@@ -172,7 +172,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex-1 p-6 overflow-auto">
+    <div className="flex-1 flex flex-col gap-6 p-6 overflow-y-auto">
       <div className="flex flex-col gap-6">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <StatsCard
@@ -193,13 +193,12 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
-          <ChartCard title={t('dashboard.cpu_title')} data={cpuChartData} unit="%" color="var(--chart-1)" />
-          <ChartCard title={t('dashboard.memory_title')} data={memoryChartData} unit="MB" color="var(--chart-2)" />
+          <ChartCard title={t('dashboard.cpu_title')} data={cpuChartData} />
+          <ChartCard title={t('dashboard.memory_title')} data={memoryChartData} />
         </div>
 
         <ProjectsTable projects={projectsTableRows} className="min-h-[400px]" />
       </div>
     </div>
-
   )
 }
