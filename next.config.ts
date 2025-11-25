@@ -13,7 +13,7 @@ const nextConfig = {
     unoptimized: true,
   },
   // Configure assetPrefix to ensure assets resolve correctly during dev
-  assetPrefix: isProd ? undefined : `http://${internalHost}:3000`,
+  assetPrefix: isProd ? undefined : `http://${internalHost}:8888`,
 }
 
 export default nextConfig

@@ -4,11 +4,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolConfig {
-    pub id: String,            // Tool ID (e.g., "vscode", "cursor", "terminal")
+    pub id: String, // Tool ID (e.g., "vscode", "cursor", "terminal")
     #[serde(rename = "type")]
-    pub tool_type: String,     // Tool type: "ide" or "cli"
-    pub command: String,       // Command to execute or app name for AppleScript
-    pub display_name: String,  // Display name for UI
+    pub tool_type: String, // Tool type: "ide" or "cli"
+    pub command: String, // Command to execute or app name for AppleScript
+    pub display_name: String, // Display name for UI
     pub launch_method: String, // Launch method: "command" or "applescript"
 }
 
@@ -16,8 +16,8 @@ pub struct ToolConfig {
 #[derive(Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct CliLaunchResult {
-    pub start_time: i64, // Unix timestamp (seconds)
-    pub pid: Option<u32>, // Window PID for supported IDEs (vscode/cursor)
+    pub start_time: i64,          // Unix timestamp (seconds)
+    pub pid: Option<u32>,         // Window PID for supported IDEs (vscode/cursor)
     pub is_existing_window: bool, // True if focused existing window, false if new launch
 }
 

@@ -14,6 +14,7 @@
     "notification:allow-notify",
     "notification:allow-register-action-types",
     "notification:allow-register-listener",
-    "notification:allow-cancel"
+    "notification:allow-cancel",
+    "dialog:default"
   ]
 }

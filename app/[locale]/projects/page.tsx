@@ -1,13 +1,14 @@
 'use client'
 
 import { isNil } from 'lodash-es'
-import { Cpu, HardDrive, MonitorPlay, MoreVertical, Plus, Search, X } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { Cpu, FolderOpen, HardDrive, MonitorPlay, MoreVertical, Plus, Search, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -24,13 +26,28 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { BUILTIN_AI_CLI_TOOLS, BUILTIN_IDE_TOOLS } from '@/types/tools'
-import { launchAiCLI, launchIDE, registerSession } from '@/utils/tauri'
+import { getRandomAccentColor } from '@/utils/colors'
+import { launchAiCLI, launchIDE, listSubdirectories, registerSession, selectDirectory } from '@/utils/tauri'
+import { cn } from '@/utils/ui'
 import { getActiveSessionByProjectAndTool, initializeDatabase, type Project } from '../db'
 import { useProjectStore, useSessionStore, useSettingsStore } from '../stores'
+import { BulkDeleteProjectsDialog } from './components/BulkDeleteProjectsDialog'
+import { BulkGroupDialog } from './components/BulkGroupDialog'
+import { BulkTagsDialog } from './components/BulkTagsDialog'
 import { DeleteProjectDialog } from './components/DeleteProjectDialog'
 import { ProjectDialog } from './components/ProjectDialog'
 
 type SortOption = 'newest' | 'oldest' | 'name'
+
+function sanitizePath(path: string): string {
+  return path.replace(/\\/g, '/').replace(/\/+$/, '')
+}
+
+function extractFolderName(path: string): string {
+  const normalized = sanitizePath(path)
+  const segments = normalized.split('/').filter(Boolean)
+  return segments.pop() ?? normalized
+}
 
 function formatMemory(value?: number) {
   if (!Number.isFinite(value) || isNil(value) || value < 0)
@@ -43,12 +60,18 @@ function formatMemory(value?: number) {
 export default function ProjectsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [sortOption, setSortOption] = useState<SortOption>('newest')
+  const [groupFilter, setGroupFilter] = useState<'all' | number>('all')
   const [tagFilter, setTagFilter] = useState<'all' | number>('all')
+  const [selectedProjectIds, setSelectedProjectIds] = useState<number[]>([])
   const [projectDialogOpen, setProjectDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [bulkGroupDialogOpen, setBulkGroupDialogOpen] = useState(false)
+  const [bulkTagsDialogOpen, setBulkTagsDialogOpen] = useState(false)
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
   const [editingProject, setEditingProject] = useState<Project | undefined>()
-  const [deletingProject, setDeletingProject] = useState<Project | null>(null)
+  const [deletingProjectId, setDeletingProjectId] = useState<number | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
+  const [isImporting, setIsImporting] = useState(false)
   const { t } = useTranslation(['global', 'projects'])
 
   const {
@@ -60,8 +83,11 @@ export default function ProjectsPage() {
     removeGroup,
     removeTag,
     addProject,
+    bulkAddProjects,
     modifyProject,
     removeProject,
+    bulkUpdateProjects,
+    bulkRemoveProjects,
     initialize: initializeProjects,
   } = useProjectStore()
   const {
@@ -96,6 +122,10 @@ export default function ProjectsPage() {
   useEffect(() => {
     console.info(resourceData)
   }, [resourceData])
+
+  useEffect(() => {
+    setSelectedProjectIds(ids => ids.filter(id => projects.some(project => project.id === id)))
+  }, [projects])
 
   const tagMap = useMemo(() => new Map(tags.map(tag => [tag.id, tag])), [tags])
 
@@ -138,15 +168,23 @@ export default function ProjectsPage() {
       .filter(({ project }) => {
         if (!query)
           return true
+        const description = (project.description || '').toLowerCase()
+        const path = project.path.toLowerCase()
         return (
           project.name.toLowerCase().includes(query)
-          || (project.description || '').toLowerCase().includes(query)
+          || description.includes(query)
+          || path.includes(query)
         )
       })
       .filter(({ project }) => {
         if (tagFilter === 'all')
           return true
         return project.tagIds.includes(tagFilter)
+      })
+      .filter(({ project }) => {
+        if (groupFilter === 'all')
+          return true
+        return project.groupId === groupFilter
       })
       .sort((a, b) => {
         if (sortOption === 'name')
@@ -155,7 +193,21 @@ export default function ProjectsPage() {
           return (a.project.createdAt ?? 0) - (b.project.createdAt ?? 0)
         return (b.project.createdAt ?? 0) - (a.project.createdAt ?? 0)
       })
-  }, [normalizedProjects, searchQuery, sortOption, tagFilter])
+  }, [normalizedProjects, searchQuery, sortOption, tagFilter, groupFilter])
+
+  const visibleProjectIds = useMemo(() => {
+    return filteredProjects
+      .map(({ project }) => project.id)
+      .filter((id): id is number => typeof id === 'number')
+  }, [filteredProjects])
+
+  const allVisibleSelected = useMemo(() => {
+    if (visibleProjectIds.length === 0)
+      return false
+    return visibleProjectIds.every(id => selectedProjectIds.includes(id))
+  }, [selectedProjectIds, visibleProjectIds])
+
+  const selectionCount = selectedProjectIds.length
 
   const handleCreateProject = () => {
     setEditingProject(undefined)
@@ -197,14 +249,38 @@ export default function ProjectsPage() {
     }
   }
 
+  const toggleProjectSelection = (projectId: number) => {
+    setSelectedProjectIds((prev) => {
+      if (prev.includes(projectId))
+        return prev.filter(id => id !== projectId)
+      return [...prev, projectId]
+    })
+  }
+
+  const handleToggleSelectAllVisible = () => {
+    if (!visibleProjectIds.length)
+      return
+    setSelectedProjectIds((prev) => {
+      if (visibleProjectIds.every(id => prev.includes(id))) {
+        return prev.filter(id => !visibleProjectIds.includes(id))
+      }
+      const combined = new Set([...prev, ...visibleProjectIds])
+      return Array.from(combined)
+    })
+  }
+
+  const clearSelection = () => {
+    setSelectedProjectIds([])
+  }
+
   const handleConfirmDelete = async () => {
-    if (!deletingProject)
+    if (deletingProjectId === null)
       return
 
     try {
-      await removeProject(deletingProject.id!)
+      await removeProject(deletingProjectId)
       toast.success(t('projects.tip.delete_success'))
-      setDeletingProject(null)
+      setDeletingProjectId(null)
       setDeleteDialogOpen(false)
     }
     catch (error) {
@@ -329,6 +405,12 @@ export default function ProjectsPage() {
     }
   }
 
+  const handleDeleteDialogOpenChange = (open: boolean) => {
+    setDeleteDialogOpen(open)
+    if (!open)
+      setDeletingProjectId(null)
+  }
+
   const handleCloseSession = async (sessionRecordId: number) => {
     try {
       await closeSession(sessionRecordId)
@@ -345,6 +427,132 @@ export default function ProjectsPage() {
     }
   }
 
+  const handleBulkImport = useCallback(async () => {
+    setIsImporting(true)
+    try {
+      const rootPath = await selectDirectory({
+        title: t('projects.tip.bulk_import_dialog_title'),
+      })
+      if (!rootPath)
+        return
+
+      const subdirectories = await listSubdirectories(rootPath)
+      if (subdirectories.length === 0) {
+        toast.info(t('projects.tip.bulk_import_no_projects'))
+        return
+      }
+
+      // Filter out hidden directories (starting with .)
+      const visibleDirectories = subdirectories.filter((dirPath) => {
+        const folderName = extractFolderName(dirPath)
+        return !folderName.startsWith('.')
+      })
+
+      if (visibleDirectories.length === 0) {
+        toast.info(t('projects.tip.bulk_import_no_projects'))
+        return
+      }
+
+      const rootName = extractFolderName(rootPath) || t('projects.tip.bulk_import_group_fallback')
+      const existingGroup = groups.find(group => group.name.toLowerCase() === rootName.toLowerCase())
+      const groupId = existingGroup
+        ? existingGroup.id
+        : await addGroup(rootName, getRandomAccentColor())
+
+      const existingPaths = new Set(projects.map(project => sanitizePath(project.path)))
+      const preparedProjects = visibleDirectories
+        .map((dirPath) => {
+          const normalizedPath = sanitizePath(dirPath)
+          const projectName = extractFolderName(normalizedPath)
+          return {
+            name: projectName,
+            path: normalizedPath,
+          }
+        })
+        .filter(({ name, path }) => name && !existingPaths.has(path))
+
+      if (preparedProjects.length === 0) {
+        toast.info(t('projects.tip.bulk_import_no_new_projects'))
+        return
+      }
+
+      await bulkAddProjects(
+        preparedProjects.map(project => ({
+          name: project.name,
+          path: project.path,
+          groupId: groupId ?? undefined,
+          tagIds: [],
+        })),
+      )
+
+      const skipped = visibleDirectories.length - preparedProjects.length
+      toast.success(t('projects.tip.bulk_import_success', {
+        count: preparedProjects.length,
+        group: rootName,
+      }))
+      if (skipped > 0) {
+        toast.info(t('projects.tip.bulk_import_skipped', { count: skipped }))
+      }
+    }
+    catch (error) {
+      console.error('[Projects] Bulk import failed:', error)
+      toast.error(t('projects.tip.bulk_import_failed'), {
+        description:
+          error instanceof Error
+            ? error.message
+            : t('global.tip.unknown_error'),
+      })
+    }
+    finally {
+      setIsImporting(false)
+    }
+  }, [addGroup, bulkAddProjects, groups, projects, t])
+
+  const handleBulkGroupSubmit = async (groupId?: number) => {
+    if (!selectedProjectIds.length)
+      return
+    try {
+      await bulkUpdateProjects(selectedProjectIds, { groupId })
+      toast.success(t('projects.tip.bulk_group_success', { count: selectionCount }))
+      clearSelection()
+    }
+    catch (error) {
+      console.error('[Projects] Bulk group update failed:', error)
+      toast.error(t('projects.tip.bulk_group_failed'))
+      throw error
+    }
+  }
+
+  const handleBulkTagsSubmit = async (tagIds: number[]) => {
+    if (!selectedProjectIds.length)
+      return
+    try {
+      await bulkUpdateProjects(selectedProjectIds, { tagIds })
+      toast.success(t('projects.tip.bulk_tags_success', { count: selectionCount }))
+      clearSelection()
+    }
+    catch (error) {
+      console.error('[Projects] Bulk tag update failed:', error)
+      toast.error(t('projects.tip.bulk_tags_failed'))
+      throw error
+    }
+  }
+
+  const handleBulkDeleteSelected = async () => {
+    if (!selectedProjectIds.length)
+      return
+    try {
+      await bulkRemoveProjects(selectedProjectIds)
+      toast.success(t('projects.tip.bulk_delete_success', { count: selectionCount }))
+      clearSelection()
+    }
+    catch (error) {
+      console.error('[Projects] Bulk delete failed:', error)
+      toast.error(t('projects.tip.bulk_delete_failed'))
+      throw error
+    }
+  }
+
   if (!isInitialized) {
     return (
       <div className="flex h-full flex-1 items-center justify-center">
@@ -358,8 +566,8 @@ export default function ProjectsPage() {
 
   return (
     <div className="flex-1 p-6 overflow-auto space-y-6">
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="relative w-full md:w-[300px]">
+      <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
+        <div className="flex-1 relative w-full md:w-[300px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
             placeholder={t('projects.tip.search_placeholder')}
@@ -370,40 +578,101 @@ export default function ProjectsPage() {
         </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto">
-          <Select value={sortOption} onValueChange={value => setSortOption(value as SortOption)}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder={t('global.sort_by')} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="newest">{t('global.newest')}</SelectItem>
-              <SelectItem value="oldest">{t('global.oldest')}</SelectItem>
-              <SelectItem value="name">{t('global.name')}</SelectItem>
-            </SelectContent>
-          </Select>
 
-          <Select
-            value={tagFilter === 'all' ? 'all' : tagFilter.toString()}
-            onValueChange={value => setTagFilter(value === 'all' ? 'all' : Number(value))}
+          <div
+            className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none"
+            title={t('projects.select_all') ?? undefined}
           >
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder={t('projects.all_tags')} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('projects.all_tags')}</SelectItem>
-              {tags.map(tag => (
-                <SelectItem key={tag.id} value={tag.id!.toString()}>
-                  {tag.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <Checkbox
+              id="select-all"
+              className="border-muted-foreground/40"
+              checked={allVisibleSelected}
+              onChange={handleToggleSelectAllVisible}
+              disabled={visibleProjectIds.length === 0}
+            />
+            <Label htmlFor="select-all shrink-0">{t('projects.select_all')}</Label>
+
+          </div>
 
           <Button onClick={handleCreateProject}>
             <Plus className="w-4 h-4 mr-2" />
             {t('projects.create_project')}
           </Button>
+          <Button variant="outline" onClick={handleBulkImport} disabled={isImporting}>
+            <FolderOpen className="w-4 h-4 mr-2" />
+            {t('projects.bulk_import')}
+          </Button>
         </div>
       </div>
+
+      <div className="flex items-center w-full gap-3">
+        <Select value={sortOption} onValueChange={value => setSortOption(value as SortOption)}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder={t('global.sort_by')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="newest">{t('global.newest')}</SelectItem>
+            <SelectItem value="oldest">{t('global.oldest')}</SelectItem>
+            <SelectItem value="name">{t('global.name')}</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={groupFilter === 'all' ? 'all' : groupFilter.toString()}
+          onValueChange={value => setGroupFilter(value === 'all' ? 'all' : Number(value))}
+        >
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder={t('projects.all_groups')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('projects.all_groups')}</SelectItem>
+            {groups.map(group => (
+              <SelectItem key={group.id} value={group.id!.toString()}>
+                {group.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={tagFilter === 'all' ? 'all' : tagFilter.toString()}
+          onValueChange={value => setTagFilter(value === 'all' ? 'all' : Number(value))}
+        >
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder={t('projects.all_tags')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('projects.all_tags')}</SelectItem>
+            {tags.map(tag => (
+              <SelectItem key={tag.id} value={tag.id!.toString()}>
+                {tag.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {selectionCount > 0 && (
+        <Card className="p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between border-primary/40 ring-1 ring-primary/20 bg-primary/5">
+          <p className="text-sm font-medium">
+            {t('projects.tip.selection_summary', { count: selectionCount })}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setBulkGroupDialogOpen(true)}>
+              {t('projects.set_group')}
+            </Button>
+            <Button variant="outline" onClick={() => setBulkTagsDialogOpen(true)}>
+              {t('projects.set_tags')}
+            </Button>
+            <Button variant="destructive" onClick={() => setBulkDeleteDialogOpen(true)}>
+              {t('projects.delete_selected')}
+            </Button>
+            <Button variant="ghost" onClick={clearSelection}>
+              {t('projects.clear_selection')}
+            </Button>
+          </div>
+        </Card>
+      )}
 
       {filteredProjects.length === 0 && (
         <Card className="p-10 text-center border-dashed border-2 text-muted-foreground">
@@ -417,19 +686,31 @@ export default function ProjectsPage() {
             return null
 
           const projectSessions = sessionsByProject.get(project.id) ?? []
+          const isSelected = selectedProjectIds.includes(project.id)
 
           return (
             <Card
               key={project.id}
-              className="group relative flex flex-col p-6 hover:shadow-md transition-all duration-200 border-border"
+              className={cn(
+                'group relative flex flex-col p-6 hover:shadow-md transition-all duration-200 border-border',
+                isSelected && 'border-primary ring-2 ring-primary/40',
+              )}
               style={{ backgroundColor: 'var(--card)', color: 'var(--card-foreground)' }}
             >
               <div className="flex justify-between items-start mb-4 gap-2">
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-xl font-semibold truncate" title={project.name}>
-                    {project.name}
-                  </h3>
-                  <p className="text-xs text-muted-foreground">{project.path}</p>
+                <div className="flex items-start gap-3 min-w-0 flex-1">
+                  <Checkbox
+                    checked={isSelected}
+                    onChange={() => toggleProjectSelection(project.id!)}
+                    className="mt-1"
+                    aria-label={t('projects.tip.select_project') ?? 'Select project'}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-xl font-semibold truncate" title={project.name}>
+                      {project.name}
+                    </h3>
+                    <p className="text-xs text-muted-foreground">{project.path}</p>
+                  </div>
                 </div>
 
                 <div className="shrink-0">
@@ -475,7 +756,7 @@ export default function ProjectsPage() {
                       <DropdownMenuItem
                         className="text-destructive focus:text-destructive"
                         onClick={() => {
-                          setDeletingProject(project)
+                          setDeletingProjectId(project.id!)
                           setDeleteDialogOpen(true)
                         }}
                       >
@@ -576,11 +857,36 @@ export default function ProjectsPage() {
         onDeleteTag={removeTag}
       />
 
-      <DeleteProjectDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        project={deletingProject}
-        onConfirm={handleConfirmDelete}
+      {deletingProjectId !== null && (
+        <DeleteProjectDialog
+          open={deleteDialogOpen}
+          onOpenChange={handleDeleteDialogOpenChange}
+          projectId={deletingProjectId}
+          onConfirm={handleConfirmDelete}
+        />
+      )}
+
+      <BulkGroupDialog
+        open={bulkGroupDialogOpen}
+        onOpenChange={setBulkGroupDialogOpen}
+        groups={groups}
+        count={selectionCount}
+        onSubmit={handleBulkGroupSubmit}
+      />
+
+      <BulkTagsDialog
+        open={bulkTagsDialogOpen}
+        onOpenChange={setBulkTagsDialogOpen}
+        tags={tags}
+        count={selectionCount}
+        onSubmit={handleBulkTagsSubmit}
+      />
+
+      <BulkDeleteProjectsDialog
+        open={bulkDeleteDialogOpen}
+        onOpenChange={setBulkDeleteDialogOpen}
+        count={selectionCount}
+        onConfirm={handleBulkDeleteSelected}
       />
     </div>
   )

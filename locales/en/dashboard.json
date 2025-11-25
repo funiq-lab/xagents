@@ -19,8 +19,10 @@
     "close_success_title": "Sessions closed",
     "close_success_description": "{{count}} session(s) closed.",
     "close_failed_title": "Failed to close sessions",
-    "open_folder_title": "Coming soon",
-    "open_folder_description": "Opening folders from here will be available soon.",
+    "open_folder_success_title": "Folder opened",
+    "open_folder_success_description": "Opened {{path}} in your system.",
+    "open_folder_failed_title": "Failed to open folder",
+    "open_folder_unsupported": "Open folders from the dashboard inside the desktop app to use this action.",
     "empty_sessions": "No active project sessions"
   }
 }

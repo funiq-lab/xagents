@@ -19,8 +19,10 @@
     "close_success_title": "会话已关闭",
     "close_success_description": "已关闭 {{count}} 个会话。",
     "close_failed_title": "关闭会话失败",
-    "open_folder_title": "即将上线",
-    "open_folder_description": "稍后将支持在此处打开项目文件夹。",
+    "open_folder_success_title": "已打开项目文件夹",
+    "open_folder_success_description": "已在系统中打开 {{path}}。",
+    "open_folder_failed_title": "打开文件夹失败",
+    "open_folder_unsupported": "请在桌面应用中使用该功能以打开项目文件夹。",
     "empty_sessions": "暂无活跃会话"
   }
 }

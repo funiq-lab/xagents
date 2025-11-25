@@ -154,7 +154,10 @@ fn launch_ide(tool_config: &ToolConfig, _project_path: &str) -> Result<(), Strin
 
 /// Launch CLI tool (via terminal with auto-execution)
 fn launch_cli_tool(tool_config: &ToolConfig, project_path: &str) -> Result<(), String> {
-    println!("[launcher] Launching CLI tool: {}", tool_config.display_name);
+    println!(
+        "[launcher] Launching CLI tool: {}",
+        tool_config.display_name
+    );
 
     // For CLI tools, we need to launch via terminal
     // Use AppleScript on macOS or command line on other platforms
@@ -417,7 +420,10 @@ fn get_ide_window_pid(ide_id: &str, project_path: &str) -> Result<u32, String> {
         .and_then(|n| n.to_str())
         .unwrap_or("");
 
-    println!("[launcher] Looking for windows with project: {}", project_name);
+    println!(
+        "[launcher] Looking for windows with project: {}",
+        project_name
+    );
 
     // Find all window lines containing the project name
     let mut candidate_pids = Vec::new();
@@ -429,7 +435,11 @@ fn get_ide_window_pid(ide_id: &str, project_path: &str) -> Result<u32, String> {
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() >= 4 {
                 if let Ok(pid) = parts[2].parse::<u32>() {
-                    println!("[launcher] Found candidate window PID: {} for line: {}", pid, line.trim());
+                    println!(
+                        "[launcher] Found candidate window PID: {} for line: {}",
+                        pid,
+                        line.trim()
+                    );
                     candidate_pids.push(pid);
                 }
             }
@@ -528,7 +538,10 @@ end tell
 
     println!("[launcher] Executing AppleScript for {}", app_name);
     if is_ai_cli {
-        println!("[launcher] Auto-executing AI CLI command: {}", tool_config.display_name);
+        println!(
+            "[launcher] Auto-executing AI CLI command: {}",
+            tool_config.display_name
+        );
     }
 
     // Execute AppleScript
@@ -543,7 +556,10 @@ end tell
         return Err(format!("AppleScript execution failed: {}", stderr));
     }
 
-    println!("[launcher] Successfully launched {} via AppleScript", app_name);
+    println!(
+        "[launcher] Successfully launched {} via AppleScript",
+        app_name
+    );
     Ok(())
 }
 
@@ -557,7 +573,10 @@ end tell
 /// - codex: GitHub Codex CLI
 /// - gemini: Google Gemini CLI
 fn find_cli_process_by_path(project_path: &str, tool_names: &[&str]) -> Option<u32> {
-    println!("[launcher] Searching for CLI process with path: {}", project_path);
+    println!(
+        "[launcher] Searching for CLI process with path: {}",
+        project_path
+    );
     println!("[launcher] Looking for tool names: {:?}", tool_names);
 
     let mut sys = System::new_all();

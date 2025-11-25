@@ -22,6 +22,23 @@ export async function createProject(data: CreateProjectInput): Promise<number> {
   return id
 }
 
+export async function createProjectsBulk(data: CreateProjectInput[]): Promise<void> {
+  if (data.length === 0)
+    return
+
+  const now = Date.now()
+  await db.transaction('rw', db.projects, async () => {
+    for (const project of data) {
+      await db.projects.add({
+        ...project,
+        tagIds: project.tagIds || [],
+        createdAt: now,
+        updatedAt: now,
+      })
+    }
+  })
+}
+
 export async function updateProject(
   id: number,
   updates: Partial<Omit<Project, 'id' | 'createdAt'>>,

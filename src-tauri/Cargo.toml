@@ -41,6 +41,7 @@ tokio = { version = "1", features = ["full"] }
 # Date/time utilities
 chrono = "0.4"
 tauri-plugin-notification = "2"
+tauri-plugin-dialog = "2"
 
 # Unix process signals (Unix only)
 [target.'cfg(unix)'.dependencies]

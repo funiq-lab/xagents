@@ -35,6 +35,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { getRandomAccentColor } from '@/utils/colors'
+import { selectDirectory } from '@/utils/tauri'
 
 interface ProjectDialogProps {
   open: boolean
@@ -74,21 +76,6 @@ const DEFAULT_VALUES: ProjectFormValues = {
   path: '',
   groupId: undefined,
   tagIds: [],
-}
-
-// Generate a random color
-function getRandomColor(): string {
-  const colors = [
-    '#3b82f6', // blue
-    '#10b981', // green
-    '#8b5cf6', // purple
-    '#f59e0b', // amber
-    '#ef4444', // red
-    '#06b6d4', // cyan
-    '#ec4899', // pink
-    '#f97316', // orange
-  ]
-  return colors[Math.floor(Math.random() * colors.length)]!
 }
 
 export function ProjectDialog({
@@ -136,9 +123,14 @@ export function ProjectDialog({
 
   const handleSelectFolder = async () => {
     try {
-      toast.info(t('projects.create_project'), {
-        description: t('projects.tip.folder_description'),
+      const selectedPath = await selectDirectory({
+        title: t('projects.tip.folder_dialog_title'),
+        defaultPath: form.getValues('path') || undefined,
       })
+
+      if (selectedPath) {
+        form.setValue('path', selectedPath, { shouldDirty: true })
+      }
     }
     catch (error) {
       console.error('Select folder failed:', error)
@@ -164,7 +156,7 @@ export function ProjectDialog({
       return
 
     try {
-      const newId = await onCreateGroup(newGroupName.trim(), getRandomColor())
+      const newId = await onCreateGroup(newGroupName.trim(), getRandomAccentColor())
       form.setValue('groupId', newId)
       setNewGroupName('')
       setIsCreatingGroup(false)
@@ -181,7 +173,7 @@ export function ProjectDialog({
       return
 
     try {
-      const newId = await onCreateTag(newTagName.trim(), getRandomColor())
+      const newId = await onCreateTag(newTagName.trim(), getRandomAccentColor())
       const current = form.getValues('tagIds') ?? []
       form.setValue('tagIds', [...current, newId])
       setNewTagName('')
@@ -257,8 +249,8 @@ export function ProjectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
+      <DialogContent className="w-[90vw] sm:w-[60vw] max-w-none h-[80vh] flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle>
             {isEditMode ? t('projects.edit_project') : t('projects.create_project')}
           </DialogTitle>
@@ -269,93 +261,196 @@ export function ProjectDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <Form {...form}>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    {t('projects.project_name')}
-                    {' '}
-                    *
-                  </FormLabel>
-                  <FormControl>
-                    <Input placeholder={t('projects.project_name_placeholder')} {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+        <div className="flex-1 overflow-hidden">
+          <Form {...form}>
+            <form onSubmit={handleSubmit} className="flex h-full flex-col">
+              <div className="flex-1 space-y-4 overflow-y-auto pr-1">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        {t('projects.project_name')}
+                        {' '}
+                        *
+                      </FormLabel>
+                      <FormControl>
+                        <Input placeholder={t('projects.project_name_placeholder')} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('projects.project_description')}</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder={t('projects.project_description_placeholder')}
-                      rows={3}
-                      {...field}
-                      value={field.value ?? ''}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('projects.project_description')}</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder={t('projects.project_description_placeholder')}
+                          rows={3}
+                          {...field}
+                          value={field.value ?? ''}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <FormField
-              control={form.control}
-              name="path"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    {t('projects.project_path')}
-                    {' '}
-                    *
-                  </FormLabel>
-                  <div className="flex gap-2">
-                    <FormControl>
-                      <Input
-                        placeholder={t('projects.project_path_placeholder')}
-                        className="flex-1"
-                        {...field}
-                      />
-                    </FormControl>
-                    <Button type="button" variant="outline" size="icon" onClick={handleSelectFolder}>
-                      <FolderOpen className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                <FormField
+                  control={form.control}
+                  name="path"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        {t('projects.project_path')}
+                        {' '}
+                        *
+                      </FormLabel>
+                      <div className="flex gap-2">
+                        <FormControl>
+                          <Input
+                            placeholder={t('projects.project_path_placeholder')}
+                            className="flex-1"
+                            {...field}
+                          />
+                        </FormControl>
+                        <Button type="button" variant="outline" size="icon" onClick={handleSelectFolder}>
+                          <FolderOpen className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <FormField
-              control={form.control}
-              name="groupId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('projects.project_group')}</FormLabel>
-                  {isCreatingGroup
+                <FormField
+                  control={form.control}
+                  name="groupId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('projects.project_group')}</FormLabel>
+                      {isCreatingGroup
+                        ? (
+                            <div className="flex gap-2">
+                              <Input
+                                placeholder={t('projects.tip.group_name_placeholder')}
+                                value={newGroupName}
+                                onChange={e => setNewGroupName(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault()
+                                    handleCreateGroup()
+                                  }
+                                  else if (e.key === 'Escape') {
+                                    setIsCreatingGroup(false)
+                                    setNewGroupName('')
+                                  }
+                                }}
+                                autoFocus
+                              />
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="default"
+                                onClick={handleCreateGroup}
+                                disabled={!newGroupName.trim()}
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => {
+                                  setIsCreatingGroup(false)
+                                  setNewGroupName('')
+                                }}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )
+                        : (
+                            <div className="flex gap-2">
+                              <Select
+                                value={field.value ? field.value.toString() : 'none'}
+                                onValueChange={(value) => {
+                                  field.onChange(value === 'none' ? undefined : Number(value))
+                                }}
+                              >
+                                <FormControl>
+                                  <SelectTrigger className="flex-1">
+                                    <SelectValue placeholder={t('projects.project_group_placeholder')} />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="none">{t('projects.no_group')}</SelectItem>
+                                  {groups.map(group => (
+                                    <SelectItem key={group.id} value={group.id!.toString()}>
+                                      <div className="flex items-center justify-between w-full gap-2">
+                                        <div className="flex items-center gap-2">
+                                          <div className="h-2 w-2 rounded-full" style={{ backgroundColor: group.color }} />
+                                          {group.name}
+                                        </div>
+                                        {onDeleteGroup && (
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-5 w-5 opacity-50 hover:opacity-100"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleDeleteGroup(group.id!)
+                                            }}
+                                          >
+                                            <X className="h-3 w-3" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {onCreateGroup && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => setIsCreatingGroup(true)}
+                                >
+                                  <Plus className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="space-y-2">
+                  <FormLabel>{t('projects.project_tags')}</FormLabel>
+                  {isCreatingTag
                     ? (
                         <div className="flex gap-2">
                           <Input
-                            placeholder={t('projects.tip.group_name_placeholder')}
-                            value={newGroupName}
-                            onChange={e => setNewGroupName(e.target.value)}
+                            placeholder={t('projects.tip.tag_name_placeholder')}
+                            value={newTagName}
+                            onChange={e => setNewTagName(e.target.value)}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
                                 e.preventDefault()
-                                handleCreateGroup()
+                                handleCreateTag()
                               }
                               else if (e.key === 'Escape') {
-                                setIsCreatingGroup(false)
-                                setNewGroupName('')
+                                setIsCreatingTag(false)
+                                setNewTagName('')
                               }
                             }}
                             autoFocus
@@ -364,8 +459,8 @@ export function ProjectDialog({
                             type="button"
                             size="icon"
                             variant="default"
-                            onClick={handleCreateGroup}
-                            disabled={!newGroupName.trim()}
+                            onClick={handleCreateTag}
+                            disabled={!newTagName.trim()}
                           >
                             <Plus className="h-4 w-4" />
                           </Button>
@@ -374,8 +469,8 @@ export function ProjectDialog({
                             size="icon"
                             variant="ghost"
                             onClick={() => {
-                              setIsCreatingGroup(false)
-                              setNewGroupName('')
+                              setIsCreatingTag(false)
+                              setNewTagName('')
                             }}
                           >
                             <X className="h-4 w-4" />
@@ -383,161 +478,62 @@ export function ProjectDialog({
                         </div>
                       )
                     : (
-                        <div className="flex gap-2">
-                          <Select
-                            value={field.value ? field.value.toString() : 'none'}
-                            onValueChange={(value) => {
-                              field.onChange(value === 'none' ? undefined : Number(value))
-                            }}
-                          >
-                            <FormControl>
-                              <SelectTrigger className="flex-1">
-                                <SelectValue placeholder={t('projects.project_group_placeholder')} />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="none">{t('projects.no_group')}</SelectItem>
-                              {groups.map(group => (
-                                <SelectItem key={group.id} value={group.id!.toString()}>
-                                  <div className="flex items-center justify-between w-full gap-2">
-                                    <div className="flex items-center gap-2">
-                                      <div className="h-2 w-2 rounded-full" style={{ backgroundColor: group.color }} />
-                                      {group.name}
-                                    </div>
-                                    {onDeleteGroup && (
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-5 w-5 opacity-50 hover:opacity-100"
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          handleDeleteGroup(group.id!)
-                                        }}
-                                      >
-                                        <X className="h-3 w-3" />
-                                      </Button>
-                                    )}
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          {onCreateGroup && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              onClick={() => setIsCreatingGroup(true)}
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                          )}
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap gap-2">
+                            {tags.map(tag => (
+                              <Badge
+                                key={tag.id}
+                                variant={tagIds.includes(tag.id!) ? 'default' : 'outline'}
+                                className="cursor-pointer gap-1 group"
+                                style={
+                                  tagIds.includes(tag.id!)
+                                    ? { backgroundColor: tag.color, borderColor: tag.color }
+                                    : { color: tag.color, borderColor: tag.color }
+                                }
+                              >
+                                <span onClick={() => toggleTag(tag.id!)}>
+                                  {tag.name}
+                                </span>
+                                {onDeleteTag && (
+                                  <X
+                                    className="h-3 w-3 opacity-50 hover:opacity-100"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleDeleteTag(tag.id!)
+                                    }}
+                                  />
+                                )}
+                              </Badge>
+                            ))}
+                            {onCreateTag && (
+                              <Badge
+                                variant="outline"
+                                className="cursor-pointer gap-1"
+                                onClick={() => setIsCreatingTag(true)}
+                              >
+                                <Plus className="h-3 w-3" />
+                                {t('projects.tip.create_tag')}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       )}
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                </div>
+              </div>
 
-            <div className="space-y-2">
-              <FormLabel>{t('projects.project_tags')}</FormLabel>
-              {isCreatingTag
-                ? (
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder={t('projects.tip.tag_name_placeholder')}
-                        value={newTagName}
-                        onChange={e => setNewTagName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault()
-                            handleCreateTag()
-                          }
-                          else if (e.key === 'Escape') {
-                            setIsCreatingTag(false)
-                            setNewTagName('')
-                          }
-                        }}
-                        autoFocus
-                      />
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="default"
-                        onClick={handleCreateTag}
-                        disabled={!newTagName.trim()}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => {
-                          setIsCreatingTag(false)
-                          setNewTagName('')
-                        }}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )
-                : (
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap gap-2">
-                        {tags.map(tag => (
-                          <Badge
-                            key={tag.id}
-                            variant={tagIds.includes(tag.id!) ? 'default' : 'outline'}
-                            className="cursor-pointer gap-1 group"
-                            style={
-                              tagIds.includes(tag.id!)
-                                ? { backgroundColor: tag.color, borderColor: tag.color }
-                                : { color: tag.color, borderColor: tag.color }
-                            }
-                          >
-                            <span onClick={() => toggleTag(tag.id!)}>
-                              {tag.name}
-                            </span>
-                            {onDeleteTag && (
-                              <X
-                                className="h-3 w-3 opacity-50 hover:opacity-100"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleDeleteTag(tag.id!)
-                                }}
-                              />
-                            )}
-                          </Badge>
-                        ))}
-                        {onCreateTag && (
-                          <Badge
-                            variant="outline"
-                            className="cursor-pointer gap-1"
-                            onClick={() => setIsCreatingTag(true)}
-                          >
-                            <Plus className="h-3 w-3" />
-                            {t('projects.tip.create_tag')}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  )}
-            </div>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                {t('global.cancel')}
-              </Button>
-              <Button type="submit" disabled={isSaving}>
-                {isEditMode
-                  ? t('global.save')
-                  : t('global.create')}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+              <DialogFooter className="shrink-0 pt-4">
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                  {t('global.cancel')}
+                </Button>
+                <Button type="submit" disabled={isSaving}>
+                  {isEditMode
+                    ? t('global.save')
+                    : t('global.create')}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </div>
       </DialogContent>
     </Dialog>
   )

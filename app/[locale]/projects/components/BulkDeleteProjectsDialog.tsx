@@ -1,6 +1,5 @@
 'use client'
 
-import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   AlertDialog,
@@ -12,28 +11,21 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { useProjectStore } from '../../stores'
 
-interface DeleteProjectDialogProps {
+interface BulkDeleteProjectsDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  projectId: number | null
+  count: number
   onConfirm: () => Promise<void>
 }
 
-export function DeleteProjectDialog({
+export function BulkDeleteProjectsDialog({
   open,
   onOpenChange,
-  projectId,
+  count,
   onConfirm,
-}: DeleteProjectDialogProps) {
+}: BulkDeleteProjectsDialogProps) {
   const { t } = useTranslation(['global', 'projects'])
-  const { projects } = useProjectStore()
-
-  const project = useMemo(
-    () => projects.find(item => item.id === projectId),
-    [projects, projectId],
-  )
 
   const handleConfirm = async () => {
     await onConfirm()
@@ -41,15 +33,15 @@ export function DeleteProjectDialog({
   }
 
   // Prevent hydration mismatch by stabilizing the description text
-  const description = project?.name
-    ? t('projects.tip.delete_description', { name: project.name })
+  const description = count > 0
+    ? t('projects.tip.bulk_delete_description', { count })
     : ''
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{t('projects.tip.delete_title')}</AlertDialogTitle>
+          <AlertDialogTitle>{t('projects.tip.bulk_delete_title')}</AlertDialogTitle>
           <AlertDialogDescription>
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -57,7 +49,7 @@ export function DeleteProjectDialog({
           <div>
             {description}
           </div>
-          <div className="text-sm">
+          <div className="text-sm text-muted-foreground">
             {t('projects.tip.delete_note')}
           </div>
           <div className="text-sm text-destructive font-medium">
@@ -66,8 +58,11 @@ export function DeleteProjectDialog({
         </div>
         <AlertDialogFooter>
           <AlertDialogCancel>{t('global.cancel')}</AlertDialogCancel>
-          <AlertDialogAction onClick={handleConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-            {t('global.delete')}
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={handleConfirm}
+          >
+            {t('projects.delete_selected')}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

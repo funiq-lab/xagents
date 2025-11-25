@@ -1,10 +1,12 @@
 'use client'
 
 import type { ResourceData } from '../stores/useSessionStore'
+import { openPath } from '@tauri-apps/plugin-opener'
 import { isNil } from 'lodash-es'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { isTauriEnvironment } from '@/utils/env'
 import { initializeDatabase, type ProcessSession } from '../db'
 import { useProjectStore, useSessionStore, useSettingsStore } from '../stores'
 import { ChartCard, type ChartPoint } from './components/ChartCard'
@@ -122,11 +124,27 @@ export default function DashboardPage() {
     }
   }, [closeSession, t])
 
-  const handleOpenFolder = useCallback((projectPath: string) => {
-    console.info('Open folder:', projectPath)
-    toast.info(t('dashboard.tip.open_folder_title'), {
-      description: t('dashboard.tip.open_folder_description'),
-    })
+  const handleOpenFolder = useCallback(async (projectPath: string) => {
+    if (!isTauriEnvironment()) {
+      toast.info(t('dashboard.tip.open_folder_unsupported'))
+      return
+    }
+
+    try {
+      await openPath(projectPath)
+      toast.success(t('dashboard.tip.open_folder_success_title'), {
+        description: t('dashboard.tip.open_folder_success_description', { path: projectPath }),
+      })
+    }
+    catch (error) {
+      console.error('[Dashboard] Open folder failed:', error)
+      toast.error(t('dashboard.tip.open_folder_failed_title'), {
+        description:
+          error instanceof Error
+            ? error.message
+            : t('global.tip.unknown_error'),
+      })
+    }
   }, [t])
 
   const projectsTableRows = useMemo<ProjectsTableRow[]>(() => {
@@ -140,7 +158,7 @@ export default function DashboardPage() {
           return null
 
         const metrics = sessions.map(session => getSessionMetrics(session, resourceData))
-        const avgCpu = metrics.reduce((sum, metric) => sum + metric.cpu, 0) / metrics.length
+        const totalCpu = metrics.reduce((sum, metric) => sum + metric.cpu, 0)
         const totalMemory = metrics.reduce((sum, metric) => sum + metric.memory, 0)
         const sessionRecordIds = sessions.map(session => session.id).filter((id): id is number => typeof id === 'number')
 
@@ -148,7 +166,7 @@ export default function DashboardPage() {
           id: project.id,
           name: project.name,
           servers: sessions.map(session => session.toolName).join(', '),
-          cpu: `${avgCpu.toFixed(2)}%`,
+          cpu: `${totalCpu.toFixed(2)}%`,
           memory: formatMemory(totalMemory),
           onInspect: () => handleOpenFolder(project.path),
           onTerminate: sessionRecordIds.length

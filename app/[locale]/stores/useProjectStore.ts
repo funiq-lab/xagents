@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { createGroup, createProject, type CreateProjectInput, createTag, deleteGroup, deleteProject, deleteTag, filterProjects, getAllGroups, getAllProjects, getAllTags, type Group, type Project, type ProjectFilter, type Tag, updateGroup, updateProject, updateTag } from '../db'
+import { bulkDeleteProjects as bulkDeleteProjectsDb, bulkUpdateProjects as bulkUpdateProjectsDb, createGroup, createProject, type CreateProjectInput, createProjectsBulk, createTag, deleteGroup, deleteProject, deleteTag, filterProjects, getAllGroups, getAllProjects, getAllTags, type Group, type Project, type ProjectFilter, type Tag, updateGroup, updateProject, updateTag } from '../db'
 
 export interface ProjectStore {
   projects: Project[]
@@ -10,8 +10,11 @@ export interface ProjectStore {
   isLoading: boolean
   loadProjects: () => Promise<void>
   addProject: (data: CreateProjectInput) => Promise<number>
+  bulkAddProjects: (data: CreateProjectInput[]) => Promise<number>
   modifyProject: (id: number, updates: Partial<Project>) => Promise<void>
   removeProject: (id: number) => Promise<void>
+  bulkUpdateProjects: (ids: number[], updates: Partial<Omit<Project, 'id' | 'createdAt'>>) => Promise<void>
+  bulkRemoveProjects: (ids: number[]) => Promise<void>
   loadGroups: () => Promise<void>
   addGroup: (name: string, color: string) => Promise<number>
   modifyGroup: (id: number, updates: { name?: string, color?: string }) => Promise<void>
@@ -56,6 +59,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     return id
   },
 
+  bulkAddProjects: async (data) => {
+    if (!data.length)
+      return 0
+    await createProjectsBulk(data)
+    await get().loadProjects()
+    return data.length
+  },
+
   modifyProject: async (id, updates) => {
     await updateProject(id, updates)
     await get().loadProjects()
@@ -63,6 +74,20 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   removeProject: async (id) => {
     await deleteProject(id)
+    await get().loadProjects()
+  },
+
+  bulkUpdateProjects: async (ids, updates) => {
+    if (!ids.length)
+      return
+    await bulkUpdateProjectsDb(ids, updates)
+    await get().loadProjects()
+  },
+
+  bulkRemoveProjects: async (ids) => {
+    if (!ids.length)
+      return
+    await bulkDeleteProjectsDb(ids)
     await get().loadProjects()
   },
 

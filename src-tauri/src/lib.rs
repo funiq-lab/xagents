@@ -2,7 +2,7 @@ mod commands;
 mod services;
 mod types;
 
-use commands::{launcher, notification, process};
+use commands::{filesystem, launcher, notification, process};
 use services::process_monitor::ProcessMonitor;
 use std::sync::Arc;
 use tauri::Manager;
@@ -10,6 +10,7 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
@@ -27,6 +28,8 @@ pub fn run() {
             process::get_process_status,
             process::kill_process,
             notification::send_notification,
+            filesystem::select_directory,
+            filesystem::list_subdirectories,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
