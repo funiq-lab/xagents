@@ -8,10 +8,10 @@ interface StatsCardProps {
 
 export function StatsCard({ label, value, helperText }: StatsCardProps) {
   return (
-    <Card className="p-4 rounded-(--radius-card) border border-border" style={{ backgroundColor: 'var(--card)' }}>
+    <Card className="p-4 rounded-(--radius-card) border border-border">
       <div className="space-y-1">
         <div className="text-sm text-muted-foreground">{label}</div>
-        <div className="text-2xl font-semibold" style={{ color: 'var(--card-foreground)' }}>
+        <div className="text-2xl font-semibold">
           {value}
         </div>
         {helperText && (

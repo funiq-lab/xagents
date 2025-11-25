@@ -1,14 +1,12 @@
 'use client'
 
-import type { NotificationConfig, ToolLaunchConfig } from '../db'
-import { ArrowLeft, RotateCcw, Save } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import type { NotificationConfig } from '../db'
+import { Check, Save } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
@@ -16,25 +14,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useSettingsStore } from '../stores'
 
 export default function SettingsPage() {
-  const router = useRouter()
   const { t } = useTranslation(['global', 'settings'])
 
   const {
-    toolConfigs,
-    toolPlatform,
+    platform,
+    availableCliTools,
+    selectedCliTool,
     notificationConfig,
-    updateToolConfigs,
-    resetToolConfigs,
+    selectCliTool,
     updateNotificationConfig,
     initialize,
   } = useSettingsStore()
 
-  const [localToolConfigs, setLocalToolConfigs] = useState<ToolLaunchConfig[]>([])
   const [localNotificationConfig, setLocalNotificationConfig] = useState<NotificationConfig | null>(null)
-
-  const [isSavingTools, setIsSavingTools] = useState(false)
   const [isSavingNotifications, setIsSavingNotifications] = useState(false)
-  const platformLabel = t(`settings.${toolPlatform}` as const)
+
+  const platformLabel = t(`settings.${platform}` as const)
   const featureItems = useMemo(
     () => t('settings.about_features', { returnObjects: true }) as string[],
     [t],
@@ -45,60 +40,25 @@ export default function SettingsPage() {
     initialize()
   }, [initialize])
 
-  // Sync tool configuration
-  useEffect(() => {
-    if (toolConfigs.length > 0) {
-      setLocalToolConfigs(toolConfigs)
-    }
-  }, [toolConfigs])
-
   useEffect(() => {
     if (notificationConfig) {
       setLocalNotificationConfig(notificationConfig)
     }
   }, [notificationConfig])
 
-  const handleSaveToolConfigs = async () => {
-    if (!localToolConfigs.length)
-      return
-
-    setIsSavingTools(true)
+  const handleSelectCliTool = async (toolId: string) => {
     try {
-      await updateToolConfigs(localToolConfigs)
-      toast.success(t('settings.tip.save_success'))
+      await selectCliTool(toolId)
+      toast.success(t('settings.tip.cli_tool_changed'))
     }
     catch (error) {
-      console.error('[Settings] Save tool configs failed:', error)
-      toast.error(t('settings.tip.save_failed'), {
+      console.error('[Settings] Select CLI tool failed:', error)
+      toast.error(t('settings.tip.cli_tool_change_failed'), {
         description:
           error instanceof Error
             ? error.message
             : t('global.tip.unknown_error'),
       })
-    }
-    finally {
-      setIsSavingTools(false)
-    }
-  }
-
-  const handleResetToolConfigs = async () => {
-    setIsSavingTools(true)
-    try {
-      const defaults = await resetToolConfigs()
-      setLocalToolConfigs(defaults)
-      toast.success(t('settings.tip.reset_success'))
-    }
-    catch (error) {
-      console.error('[Settings] Reset tool configs failed:', error)
-      toast.error(t('settings.tip.reset_failed'), {
-        description:
-          error instanceof Error
-            ? error.message
-            : t('global.tip.unknown_error'),
-      })
-    }
-    finally {
-      setIsSavingTools(false)
     }
   }
 
@@ -126,7 +86,7 @@ export default function SettingsPage() {
     }
   }
 
-  if (!localToolConfigs.length || !localNotificationConfig) {
+  if (!localNotificationConfig) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center space-y-4">
@@ -139,17 +99,6 @@ export default function SettingsPage() {
 
   return (
     <div className="container mx-auto p-6 max-w-4xl flex flex-col gap-4 overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.back()}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold">{t('settings.settings')}</h1>
-          <p className="text-muted-foreground mt-1">{t('settings.tip.settings_description')}</p>
-        </div>
-      </div>
-
       <Tabs defaultValue="tools" className="space-y-6 overflow-hidden flex-1">
         <TabsList>
           <TabsTrigger value="tools">{t('settings.tools')}</TabsTrigger>
@@ -169,113 +118,88 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <p className="text-sm text-muted-foreground">
-                {t('settings.tip.tools_intro')}
-              </p>
+              {/* IDE Tools (Built-in, not configurable) */}
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-base font-semibold">
+                    {t('settings.ide_tools_title')}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {t('settings.ide_tools_description')}
+                  </p>
+                </div>
 
-              {(['ide', 'cli'] as const).map((group) => {
-                const items = localToolConfigs.filter(tool => tool.type === group)
-                if (items.length === 0)
-                  return null
-
-                return (
-                  <div key={group} className="space-y-4">
-                    <div>
-                      <h3 className="text-base font-semibold">
-                        {group === 'ide'
-                          ? t('settings.ide')
-                          : t('settings.cli')}
-                      </h3>
-                      <p className="text-sm text-muted-foreground">
-                        {group === 'ide'
-                          ? t('settings.tip.ide_desc')
-                          : t('settings.tip.cli_desc')}
-                      </p>
-                    </div>
-
-                    <div className="space-y-4">
-                      {items.map(tool => (
-                        <div key={tool.id} className="space-y-4 rounded-lg border p-4">
-                          <div className="flex flex-col gap-1">
-                            <h4 className="font-semibold">{tool.label}</h4>
-                            <p className="text-xs text-muted-foreground">
-                              {t('settings.tip.tool_summary')}
-                            </p>
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label>{t('settings.fields_command')}</Label>
-                            <Input
-                              value={tool.command}
-                              onChange={e =>
-                                setLocalToolConfigs(configs =>
-                                  configs.map(item =>
-                                    item.id === tool.id
-                                      ? { ...item, command: e.target.value }
-                                      : item,
-                                  ))}
-                              className="font-mono text-sm"
-                            />
-                          </div>
-
-                          <div className="grid gap-4 md:grid-cols-2">
-                            <div className="space-y-2">
-                              <Label>{t('settings.fields_display')}</Label>
-                              <Input
-                                value={tool.displayName}
-                                onChange={e =>
-                                  setLocalToolConfigs(configs =>
-                                    configs.map(item =>
-                                      item.id === tool.id
-                                        ? { ...item, displayName: e.target.value }
-                                        : item,
-                                    ))}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>{t('settings.fields_process')}</Label>
-                              <Input
-                                value={tool.processName}
-                                onChange={e =>
-                                  setLocalToolConfigs(configs =>
-                                    configs.map(item =>
-                                      item.id === tool.id
-                                        ? { ...item, processName: e.target.value }
-                                        : item,
-                                    ))}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="flex items-center gap-3 p-4 rounded-lg border bg-muted/50">
+                    <div className="flex-1">
+                      <p className="font-medium">VSCode</p>
+                      <p className="text-xs text-muted-foreground">code</p>
                     </div>
                   </div>
-                )
-              })}
+                  <div className="flex items-center gap-3 p-4 rounded-lg border bg-muted/50">
+                    <div className="flex-1">
+                      <p className="font-medium">Cursor</p>
+                      <p className="text-xs text-muted-foreground">cursor</p>
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  {t('settings.ide_tools_note')}
+                </p>
+              </div>
 
               <Separator />
 
-              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleResetToolConfigs}
-                  disabled={isSavingTools}
-                >
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  {t('settings.reset')}
-                </Button>
-                <Button onClick={handleSaveToolConfigs} disabled={isSavingTools}>
-                  <Save className="h-4 w-4 mr-2" />
-                  {isSavingTools ? t('global.loading') : t('settings.save')}
-                </Button>
-              </div>
+              {/* CLI Tool Selection */}
+              {availableCliTools.length > 0 && (
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-base font-semibold">
+                      {t('settings.cli_terminal_title')}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {t('settings.cli_terminal_description')}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {availableCliTools.map(tool => (
+                      <button
+                        type="button"
+                        key={tool.id}
+                        onClick={() => handleSelectCliTool(tool.id)}
+                        className={`
+                          relative flex items-center gap-3 p-4 rounded-lg border-2 transition-all
+                          ${selectedCliTool?.id === tool.id
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50 hover:bg-accent'}
+                        `}
+                      >
+                        <div className="flex-1 text-left">
+                          <p className="font-medium">{tool.label}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {tool.appName || tool.command}
+                          </p>
+                        </div>
+                        {selectedCliTool?.id === tool.id && (
+                          <Check className="h-5 w-5 text-primary shrink-0" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    {t('settings.cli_tools_note')}
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
         {/* Notification configuration */}
-        <TabsContent value="notification" className="space-y-4">
+        <TabsContent value="notification" className="space-y-4  overflow-y-auto">
           <Card>
             <CardHeader>
               <CardTitle>{t('settings.notifications_title')}</CardTitle>
@@ -385,7 +309,7 @@ export default function SettingsPage() {
               <CardTitle>{t('settings.about_title')}</CardTitle>
               <CardDescription>{t('settings.about_description')}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4  overflow-y-auto">
               <div className="space-y-2">
                 <p className="text-sm">
                   <span className="font-semibold">{t('settings.about_version_label')}</span>

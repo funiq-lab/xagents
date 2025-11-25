@@ -1,5 +1,6 @@
 'use client'
 
+import { isNil } from 'lodash-es'
 import { Cpu, HardDrive, MonitorPlay, MoreVertical, Plus, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -22,8 +23,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { launchTool } from '@/utils/tauri'
-import { initializeDatabase, type Project, type ToolLaunchConfig } from '../db'
+import { BUILTIN_AI_CLI_TOOLS, BUILTIN_IDE_TOOLS } from '@/types/tools'
+import { launchAiCLI, launchIDE, registerSession } from '@/utils/tauri'
+import { getActiveSessionByProjectAndTool, initializeDatabase, type Project } from '../db'
 import { useProjectStore, useSessionStore, useSettingsStore } from '../stores'
 import { DeleteProjectDialog } from './components/DeleteProjectDialog'
 import { ProjectDialog } from './components/ProjectDialog'
@@ -31,10 +33,10 @@ import { ProjectDialog } from './components/ProjectDialog'
 type SortOption = 'newest' | 'oldest' | 'name'
 
 function formatMemory(value?: number) {
-  if (!Number.isFinite(value) || !value || value <= 0)
+  if (!Number.isFinite(value) || isNil(value) || value < 0)
     return '0 MB'
   if (value >= 1024)
-    return `${(value / 1024).toFixed(1)} GB`
+    return `${(value / 1024).toFixed(2)} GB`
   return `${value.toFixed(0)} MB`
 }
 
@@ -53,6 +55,10 @@ export default function ProjectsPage() {
     projects,
     tags,
     groups,
+    addGroup,
+    addTag,
+    removeGroup,
+    removeTag,
     addProject,
     modifyProject,
     removeProject,
@@ -60,11 +66,15 @@ export default function ProjectsPage() {
   } = useProjectStore()
   const {
     activeSessions,
+    resourceData,
     closeSession,
     addSession,
     initialize: initializeSessions,
   } = useSessionStore()
-  const { toolConfigs, initialize: initializeSettings } = useSettingsStore()
+  const {
+    selectedCliTool,
+    initialize: initializeSettings,
+  } = useSettingsStore()
 
   useEffect(() => {
     async function init() {
@@ -83,20 +93,24 @@ export default function ProjectsPage() {
     init()
   }, [initializeProjects, initializeSessions, initializeSettings, t])
 
-  const tagMap = useMemo(() => new Map(tags.map(tag => [tag.id, tag])), [tags])
+  useEffect(() => {
+    console.info(resourceData)
+  }, [resourceData])
 
-  const toolGroups = useMemo(() => {
-    return {
-      ide: toolConfigs.filter(tool => tool.type === 'ide'),
-      cli: toolConfigs.filter(tool => tool.type === 'cli'),
-    }
-  }, [toolConfigs])
+  const tagMap = useMemo(() => new Map(tags.map(tag => [tag.id, tag])), [tags])
 
   const toolLabelMap = useMemo(() => {
     const map = new Map<string, string>()
-    toolConfigs.forEach(tool => map.set(tool.id, tool.label))
+    // IDE tools
+    BUILTIN_IDE_TOOLS.forEach(tool => map.set(tool.id, tool.label))
+    // AI CLI tools
+    BUILTIN_AI_CLI_TOOLS.forEach(tool => map.set(tool.id, tool.label))
+    // Selected terminal tool
+    if (selectedCliTool) {
+      map.set(selectedCliTool.id, selectedCliTool.label)
+    }
     return map
-  }, [toolConfigs])
+  }, [selectedCliTool])
 
   const sessionsByProject = useMemo(() => {
     const map = new Map<number, typeof activeSessions>()
@@ -204,28 +218,63 @@ export default function ProjectsPage() {
     }
   }
 
-  const handleLaunchTool = async (project: Project, tool: ToolLaunchConfig) => {
+  const handleLaunchIDE = async (project: Project, ideId: 'vscode' | 'cursor') => {
     try {
       if (!project.id)
         throw new Error(t('projects.tip.missing_id'))
 
-      const result = await launchTool(tool, project.path)
+      const ideTool = BUILTIN_IDE_TOOLS.find(tool => tool.id === ideId)
+      if (!ideTool)
+        throw new Error('IDE tool not found')
 
-      await addSession({
-        projectId: project.id,
-        toolName: tool.id,
-        toolType: tool.type,
+      const result = await launchIDE(ideTool, project.path)
+      console.info('[Projects] Launch result:', {
+        isExistingWindow: result.isExistingWindow,
         pid: result.pid,
-        processStartTime: result.processStartTime,
-        sessionId: result.sessionId,
       })
 
+      // If this is an existing window, check if it's already bound to current project
+      if (result.isExistingWindow) {
+        const existingSession = await getActiveSessionByProjectAndTool(project.id, ideTool.id)
+        console.info('[Projects] Existing session:', existingSession)
+
+        // If window is already bound to current project, just show focus message
+        if (existingSession && result.pid === existingSession.pid) {
+          console.info('[Projects] Focused existing window bound to current project, pid:', existingSession.pid)
+          toast.success(t('projects.tip.window_focused'), {
+            description: t('projects.tip.window_focused_tip', { tool: ideTool.label }),
+          })
+          return
+        }
+
+        // Window exists but not bound to current project
+        // This can happen when user opens a different project in the same VSCode window
+        // In this case, we need to create a new session for current project
+        console.info('[Projects] Window exists but not bound to current project, creating new session')
+      }
+
+      // Either this is a new launch, or window exists but not bound to current project
+      // In both cases, create new session
+      await addSession({
+        projectId: project.id,
+        toolName: ideTool.id,
+        toolType: 'ide',
+        pid: result.pid,
+        startTime: result.startTime,
+      })
+
+      // Register session to process monitor if PID is available
+      if (result.pid) {
+        console.info('[Projects] Registering new session to monitor (pid):', result.pid)
+        await registerSession(result.pid, result.startTime)
+      }
+
       toast.success(t('projects.tip.launch_success'), {
-        description: t('projects.tip.launch_success_tip', { tool: tool.label }),
+        description: t('projects.tip.launch_success_tip', { tool: ideTool.label }),
       })
     }
     catch (error) {
-      console.error('[Projects] Launch tool failed:', error)
+      console.error('[Projects] Launch IDE failed:', error)
       toast.error(t('global.action_failed_title'), {
         description:
           error instanceof Error
@@ -235,9 +284,54 @@ export default function ProjectsPage() {
     }
   }
 
-  const handleCloseSession = async (sessionId: number) => {
+  const handleLaunchAiCLI = async (project: Project, aiToolId: 'claude' | 'codex' | 'gemini') => {
     try {
-      await closeSession(sessionId)
+      if (!project.id)
+        throw new Error(t('projects.tip.missing_id'))
+
+      if (!selectedCliTool) {
+        toast.error(t('projects.tip.no_cli_tool_selected'))
+        return
+      }
+
+      const aiTool = BUILTIN_AI_CLI_TOOLS.find(tool => tool.id === aiToolId)
+      if (!aiTool)
+        throw new Error('AI CLI tool not found')
+
+      const result = await launchAiCLI(aiTool, selectedCliTool, project.path)
+
+      await addSession({
+        projectId: project.id,
+        toolName: aiTool.id,
+        toolType: 'cli',
+        pid: result.pid,
+        startTime: result.startTime,
+      })
+
+      // Register session to process monitor if PID is available
+      if (result.pid) {
+        console.info('[Projects] Registering session to monitor (pid):', result.pid)
+        await registerSession(result.pid, result.startTime)
+      }
+
+      toast.success(t('projects.tip.launch_success'), {
+        description: t('projects.tip.launch_success_tip', { tool: aiTool.label }),
+      })
+    }
+    catch (error) {
+      console.error('[Projects] Launch AI CLI failed:', error)
+      toast.error(t('global.action_failed_title'), {
+        description:
+          error instanceof Error
+            ? error.message
+            : t('global.tip.unknown_error'),
+      })
+    }
+  }
+
+  const handleCloseSession = async (sessionRecordId: number) => {
+    try {
+      await closeSession(sessionRecordId)
       toast.success(t('projects.tip.close_session_success'))
     }
     catch (error) {
@@ -346,28 +440,34 @@ export default function ProjectsPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      {toolGroups.ide.map(tool => (
+                      {/* IDE Tools Launch */}
+                      {BUILTIN_IDE_TOOLS.map(ide => (
                         <DropdownMenuItem
-                          key={tool.id}
-                          onClick={() => handleLaunchTool(project, tool)}
+                          key={ide.id}
+                          onClick={() => handleLaunchIDE(project, ide.id)}
                         >
-                          {t('projects.open_tool', { tool: tool.label })}
+                          {t('projects.open_tool', { tool: ide.label })}
                         </DropdownMenuItem>
                       ))}
-                      {toolGroups.ide.length > 0 && toolGroups.cli.length > 0 && <DropdownMenuSeparator />}
-                      {toolGroups.cli.map(tool => (
+
+                      <DropdownMenuSeparator />
+
+                      {/* AI CLI Tools Launch */}
+                      {selectedCliTool && BUILTIN_AI_CLI_TOOLS.map(aiTool => (
                         <DropdownMenuItem
-                          key={tool.id}
-                          onClick={() => handleLaunchTool(project, tool)}
+                          key={aiTool.id}
+                          onClick={() => handleLaunchAiCLI(project, aiTool.id)}
                         >
-                          {t('projects.launch_tool', { tool: tool.label })}
+                          {t('projects.open_ai_cli', { tool: aiTool.label })}
                         </DropdownMenuItem>
                       ))}
-                      {toolGroups.ide.length === 0 && toolGroups.cli.length === 0 && (
+
+                      {!selectedCliTool && (
                         <DropdownMenuItem disabled>
-                          {t('projects.no_launch_config')}
+                          {t('projects.tip.no_cli_tool_selected')}
                         </DropdownMenuItem>
                       )}
+
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => handleEditProject(project)}>
                         {t('projects.edit_project')}
@@ -393,8 +493,10 @@ export default function ProjectsPage() {
               {projectSessions.length > 0 && (
                 <div className="flex flex-col gap-2 mb-4">
                   {projectSessions.map((session) => {
-                    const cpu = session.cpuUsage ?? 0
-                    const memory = session.memoryUsage ?? 0
+                    // Get real-time resource data from resourceData map (not from session)
+                    const resource = session.pid ? resourceData.get(session.pid) : undefined
+                    const cpu = resource?.cpuUsage ?? 0
+                    const memory = resource?.memoryUsage ?? 0
                     const toolLabel = toolLabelMap.get(session.toolName) ?? session.toolName
                     return (
                       <div
@@ -408,7 +510,7 @@ export default function ProjectsPage() {
                         <div className="flex items-center gap-3 shrink-0">
                           <div className="flex items-center gap-1 text-muted-foreground">
                             <Cpu className="w-3 h-3" />
-                            {cpu ? `${cpu.toFixed(1)}%` : '--'}
+                            {cpu && !isNil(cpu) ? `${cpu.toFixed(2)}%` : '--'}
                           </div>
                           <div className="flex items-center gap-1 text-muted-foreground">
                             <HardDrive className="w-3 h-3" />
@@ -468,6 +570,10 @@ export default function ProjectsPage() {
         groups={groups}
         tags={tags}
         onSave={handleSaveProject}
+        onCreateGroup={addGroup}
+        onCreateTag={addTag}
+        onDeleteGroup={removeGroup}
+        onDeleteTag={removeTag}
       />
 
       <DeleteProjectDialog

@@ -1,19 +1,21 @@
-import type { ToolLaunchConfig, ToolPlatform } from '@/types/tools'
 import { create } from 'zustand'
+import { type BuiltinCliTool, getAvailableCliTools, type Platform } from '@/types/tools'
 import {
   getNotificationConfig,
-  getToolConfigs,
+  getSelectedCliTool,
   getToolPlatform,
   type NotificationConfig,
-  resetToolConfigs,
   saveNotificationConfig,
-  saveToolConfigs,
+  setSelectedCliToolId,
 } from '../db'
 
 export interface SettingsStore {
-  // Tool configuration
-  toolConfigs: ToolLaunchConfig[]
-  toolPlatform: ToolPlatform
+  // Platform
+  platform: Platform
+
+  // Built-in CLI tools
+  availableCliTools: BuiltinCliTool[]
+  selectedCliTool: BuiltinCliTool | undefined
 
   // Notification configuration
   notificationConfig: NotificationConfig | null
@@ -21,10 +23,9 @@ export interface SettingsStore {
   // Loading state
   isLoading: boolean
 
-  // Tool configuration methods
-  loadToolConfigs: () => Promise<void>
-  updateToolConfigs: (configs: ToolLaunchConfig[]) => Promise<void>
-  resetToolConfigs: () => Promise<ToolLaunchConfig[]>
+  // CLI tool selection methods
+  loadCliTools: () => Promise<void>
+  selectCliTool: (toolId: string) => Promise<void>
 
   // Notification configuration methods
   loadNotificationConfig: () => Promise<void>
@@ -35,35 +36,31 @@ export interface SettingsStore {
 }
 
 export const useSettingsStore = create<SettingsStore>((set, get) => ({
-  toolConfigs: [],
-  toolPlatform: getToolPlatform(),
+  platform: getToolPlatform(),
+  availableCliTools: [],
+  selectedCliTool: undefined,
   notificationConfig: null,
   isLoading: false,
 
-  // ============ Tool configuration ============
+  // ============ CLI Tools ============
 
-  loadToolConfigs: async () => {
+  loadCliTools: async () => {
     try {
-      const platform = get().toolPlatform || getToolPlatform()
-      const configs = await getToolConfigs(platform)
-      set({ toolConfigs: configs, toolPlatform: platform })
+      const platform = get().platform
+      const available = getAvailableCliTools(platform)
+      const selected = await getSelectedCliTool(platform)
+      set({ availableCliTools: available, selectedCliTool: selected })
     }
     catch (error) {
-      console.error('[SettingsStore] Load tool configs failed:', error)
+      console.error('[SettingsStore] Load CLI tools failed:', error)
     }
   },
 
-  updateToolConfigs: async (configs) => {
-    const platform = get().toolPlatform || getToolPlatform()
-    await saveToolConfigs(configs, platform)
-    set({ toolConfigs: configs, toolPlatform: platform })
-  },
-
-  resetToolConfigs: async () => {
-    const platform = get().toolPlatform || getToolPlatform()
-    const defaults = await resetToolConfigs(platform)
-    set({ toolConfigs: defaults, toolPlatform: platform })
-    return defaults
+  selectCliTool: async (toolId) => {
+    const platform = get().platform
+    await setSelectedCliToolId(toolId, platform)
+    const selected = await getSelectedCliTool(platform)
+    set({ selectedCliTool: selected })
   },
 
   // ============ Notification configuration ============
@@ -88,7 +85,10 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   initialize: async () => {
     set({ isLoading: true })
     try {
-      await Promise.all([get().loadToolConfigs(), get().loadNotificationConfig()])
+      await Promise.all([
+        get().loadCliTools(),
+        get().loadNotificationConfig(),
+      ])
     }
     catch (error) {
       console.error('[SettingsStore] Initialize failed:', error)

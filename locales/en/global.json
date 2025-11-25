@@ -10,6 +10,7 @@
   "crashed": "crashed",
   "killed": "killed",
   "completed": "completed",
+  "auto_timeout": "auto cleaned",
   "cancel": "Cancel",
   "delete": "Delete",
   "save": "Save",

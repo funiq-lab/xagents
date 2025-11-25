@@ -1,9 +1,9 @@
 import type { ToolLaunchConfig } from '@/types/tools'
 
 export interface LaunchResult {
+  startTime: number
   pid: number
-  sessionId: string
-  processStartTime: number
+  isExistingWindow: boolean // True if focused existing window, false if new launch
 }
 
 export interface ProcessStatus {
@@ -14,16 +14,15 @@ export interface ProcessStatus {
 }
 
 export interface ResourceUpdateEvent {
-  sessionId: string
   pid: number
   cpuUsage: number
   memoryUsage: number
 }
 
 export interface ProcessStatusChangedEvent {
-  sessionId: string
+  pid: number
   newStatus: 'running' | 'completed' | 'failed' | 'closed'
-  closeReason?: 'manual' | 'completed' | 'crashed' | 'killed'
+  closeReason?: 'manual' | 'completed' | 'crashed' | 'killed' | 'process-exited'
 }
 
 export type { ToolLaunchConfig }

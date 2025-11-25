@@ -12,7 +12,6 @@ import {
   useFormContext,
   useFormState,
 } from 'react-hook-form'
-import { useTranslation } from 'react-i18next'
 
 import { Label } from '@/components/ui/label'
 import { cn } from '@/utils/ui'
@@ -44,9 +43,8 @@ function FormField<
 >({
   ...props
 }: ControllerProps<TFieldValues, TName>) {
-  const value = React.useMemo(() => ({ name: props.name }), [props.name])
   return (
-    <FormFieldContext.Provider value={value}>
+    <FormFieldContext.Provider value={{ name: props.name }}>
       <Controller {...props} />
     </FormFieldContext.Provider>
   )
@@ -77,10 +75,9 @@ function useFormField() {
 
 function FormItem({ className, ...props }: React.ComponentProps<'div'>) {
   const id = React.useId()
-  const value = React.useMemo(() => ({ id }), [id])
 
   return (
-    <FormItemContext.Provider value={value}>
+    <FormItemContext.Provider value={{ id }}>
       <div
         data-slot="form-item"
         className={cn('grid gap-2', className)}
@@ -140,13 +137,11 @@ function FormDescription({ className, ...props }: React.ComponentProps<'p'>) {
 
 function FormMessage({ className, ...props }: React.ComponentProps<'p'>) {
   const { error, formMessageId } = useFormField()
-  const { t } = useTranslation()
-  const messageBody = error ? String(error?.message ?? '') : props.children
-  if (!messageBody)
+  const body = error ? String(error?.message ?? '') : props.children
+
+  if (!body) {
     return null
-  const resolved = typeof messageBody === 'string'
-    ? t(messageBody, { defaultValue: messageBody })
-    : messageBody
+  }
 
   return (
     <p
@@ -155,7 +150,7 @@ function FormMessage({ className, ...props }: React.ComponentProps<'p'>) {
       className={cn('text-destructive text-sm', className)}
       {...props}
     >
-      {resolved}
+      {body}
     </p>
   )
 }

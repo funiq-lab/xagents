@@ -1,8 +1,8 @@
 {
   "project_label": "项目",
   "project_helper": "已接入的项目",
-  "cpu_label": "平均 CPU",
-  "cpu_helper": "各会话的平均占用",
+  "cpu_label": "CPU",
+  "cpu_helper": "会话累计占用",
   "memory_label": "内存",
   "memory_helper": "会话累计占用",
   "cpu_title": "CPU 图表",

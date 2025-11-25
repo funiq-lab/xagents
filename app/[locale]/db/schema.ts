@@ -29,20 +29,14 @@ export interface Tag {
 
 export interface ProcessSession {
   id?: number
-  sessionId?: string // UUID from Rust backend
   projectId: number
   toolName: string
   toolType: 'ide' | 'cli'
-  pid: number
-  status: 'running' | 'completed' | 'failed' | 'closed'
-  startTime: number
+  pid: number // Process PID - required
+  status: 'running' | 'completed' | 'closed'
+  startTime: number // Used for PID reuse detection
   endTime?: number
-  processStartTime: number
-  closeReason?: 'manual' | 'completed' | 'crashed' | 'killed'
-
-  cpuUsage?: number
-  memoryUsage?: number
-
+  closeReason?: 'manual' | 'auto-timeout'
 }
 
 export interface Settings {
@@ -75,11 +69,12 @@ export class XAgentsDB extends Dexie {
   constructor() {
     super('xagents_db')
 
+    // Version 1: Initial schema
     this.version(1).stores({
       projects: '++id, &path, name, groupId, createdAt, updatedAt',
       groups: '++id, &name, createdAt',
       tags: '++id, &name, createdAt',
-      sessions: '++id, &sessionId, projectId, toolName, pid, status, startTime, endTime',
+      sessions: '++id, projectId, toolName, pid, status, startTime, endTime, [projectId+toolName+status]',
       settings: '&key, updatedAt',
     })
   }

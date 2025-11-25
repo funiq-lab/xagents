@@ -1,146 +1,11 @@
-import type { ToolLaunchConfig, ToolPlatform } from '@/types/tools'
+import { getAvailableCliTools, getDefaultCliTool, type Platform } from '@/types/tools'
 import { db, type NotificationConfig } from '../schema'
 
-const TOOL_CONFIG_KEY_PREFIX = 'tool_configs'
+const SELECTED_CLI_TOOL_KEY = 'selected_cli_tool'
 
-const MAC_TERMINAL_TEMPLATE = 'open -a "iTerm2" --args --working-directory "{path}" -e "{command}"'
-const WINDOWS_TERMINAL_TEMPLATE = 'start cmd /k "cd /d {path} && {command}"'
-const LINUX_TERMINAL_TEMPLATE = 'gnome-terminal -- bash -c \'cd "{path}" && {command}; exec bash\''
+// ============ Platform detection ============
 
-const DEFAULT_TOOL_CONFIGS: Record<ToolPlatform, ToolLaunchConfig[]> = {
-  macos: [
-    {
-      id: 'vscode',
-      label: 'VSCode',
-      type: 'ide',
-      command: 'open -a "Visual Studio Code" "{path}"',
-      displayName: 'Visual Studio Code',
-      processName: 'Code',
-    },
-    {
-      id: 'cursor',
-      label: 'Cursor',
-      type: 'ide',
-      command: 'open -a "Cursor" "{path}"',
-      displayName: 'Cursor',
-      processName: 'Cursor',
-    },
-    {
-      id: 'claude-code',
-      label: 'Claude Code',
-      type: 'cli',
-      command: MAC_TERMINAL_TEMPLATE.replace('{command}', 'claude'),
-      displayName: 'iTerm',
-      processName: 'claude',
-    },
-    {
-      id: 'codex',
-      label: 'Codex',
-      type: 'cli',
-      command: MAC_TERMINAL_TEMPLATE.replace('{command}', 'codex'),
-      displayName: 'iTerm',
-      processName: 'codex',
-    },
-    {
-      id: 'gemini',
-      label: 'Gemini',
-      type: 'cli',
-      command: MAC_TERMINAL_TEMPLATE.replace('{command}', 'gemini'),
-      displayName: 'iTerm',
-      processName: 'gemini',
-    },
-  ],
-  windows: [
-    {
-      id: 'vscode',
-      label: 'VSCode',
-      type: 'ide',
-      command: 'code "{path}"',
-      displayName: 'Visual Studio Code',
-      processName: 'Code.exe',
-    },
-    {
-      id: 'cursor',
-      label: 'Cursor',
-      type: 'ide',
-      command: 'cursor "{path}"',
-      displayName: 'Cursor',
-      processName: 'Cursor.exe',
-    },
-    {
-      id: 'claude-code',
-      label: 'Claude Code',
-      type: 'cli',
-      command: WINDOWS_TERMINAL_TEMPLATE.replace('{command}', 'claude'),
-      displayName: 'Windows Terminal',
-      processName: 'claude.exe',
-    },
-    {
-      id: 'codex',
-      label: 'Codex',
-      type: 'cli',
-      command: WINDOWS_TERMINAL_TEMPLATE.replace('{command}', 'codex'),
-      displayName: 'Windows Terminal',
-      processName: 'codex.exe',
-    },
-    {
-      id: 'gemini',
-      label: 'Gemini',
-      type: 'cli',
-      command: WINDOWS_TERMINAL_TEMPLATE.replace('{command}', 'gemini'),
-      displayName: 'Windows Terminal',
-      processName: 'gemini.exe',
-    },
-  ],
-  linux: [
-    {
-      id: 'vscode',
-      label: 'VSCode',
-      type: 'ide',
-      command: 'code "{path}"',
-      displayName: 'VSCode',
-      processName: 'code',
-    },
-    {
-      id: 'cursor',
-      label: 'Cursor',
-      type: 'ide',
-      command: 'cursor "{path}"',
-      displayName: 'Cursor',
-      processName: 'cursor',
-    },
-    {
-      id: 'claude-code',
-      label: 'Claude Code',
-      type: 'cli',
-      command: LINUX_TERMINAL_TEMPLATE.replace('{command}', 'claude'),
-      displayName: 'Terminal',
-      processName: 'claude',
-    },
-    {
-      id: 'codex',
-      label: 'Codex',
-      type: 'cli',
-      command: LINUX_TERMINAL_TEMPLATE.replace('{command}', 'codex'),
-      displayName: 'Terminal',
-      processName: 'codex',
-    },
-    {
-      id: 'gemini',
-      label: 'Gemini',
-      type: 'cli',
-      command: LINUX_TERMINAL_TEMPLATE.replace('{command}', 'gemini'),
-      displayName: 'Terminal',
-      processName: 'gemini',
-    },
-  ],
-}
-
-function cloneToolConfigs(configs: ToolLaunchConfig[]): ToolLaunchConfig[] {
-  return configs.map(config => ({ ...config }))
-}
-
-function detectPlatform(): ToolPlatform {
+function detectPlatform(): Platform {
   if (typeof navigator !== 'undefined') {
     const agent = navigator.userAgent.toLowerCase()
     if (agent.includes('mac'))
@@ -165,36 +30,49 @@ function detectPlatform(): ToolPlatform {
   return 'macos'
 }
 
-function getToolConfigKey(platform: ToolPlatform): string {
-  return `${TOOL_CONFIG_KEY_PREFIX}_${platform}`
-}
-
-export function getToolPlatform(): ToolPlatform {
+export function getToolPlatform(): Platform {
   return detectPlatform()
 }
 
-export async function getToolConfigs(platform = detectPlatform()): Promise<ToolLaunchConfig[]> {
-  const setting = await db.settings.get(getToolConfigKey(platform))
-  const stored = setting?.value as ToolLaunchConfig[] | undefined
-  if (stored && stored.length > 0)
-    return cloneToolConfigs(stored)
-  return cloneToolConfigs(DEFAULT_TOOL_CONFIGS[platform])
+// ============ CLI Tool Selection ============
+
+/**
+ * Get selected CLI tool ID for current platform
+ */
+export async function getSelectedCliToolId(platform: Platform = detectPlatform()): Promise<string | undefined> {
+  const key = `${SELECTED_CLI_TOOL_KEY}_${platform}`
+  const setting = await db.settings.get(key)
+  return setting?.value as string | undefined
 }
 
-export async function saveToolConfigs(
-  configs: ToolLaunchConfig[],
-  platform = detectPlatform(),
-): Promise<void> {
+/**
+ * Set selected CLI tool ID for current platform
+ */
+export async function setSelectedCliToolId(toolId: string, platform: Platform = detectPlatform()): Promise<void> {
+  const key = `${SELECTED_CLI_TOOL_KEY}_${platform}`
   await db.settings.put({
-    key: getToolConfigKey(platform),
-    value: configs,
+    key,
+    value: toolId,
     updatedAt: Date.now(),
   })
 }
 
-export async function resetToolConfigs(platform = detectPlatform()): Promise<ToolLaunchConfig[]> {
-  await db.settings.delete(getToolConfigKey(platform))
-  return cloneToolConfigs(DEFAULT_TOOL_CONFIGS[platform])
+/**
+ * Get the currently selected CLI tool, with fallback to default
+ */
+export async function getSelectedCliTool(platform: Platform = detectPlatform()) {
+  const selectedId = await getSelectedCliToolId(platform)
+  const availableTools = getAvailableCliTools(platform)
+
+  // Find the selected tool
+  if (selectedId) {
+    const tool = availableTools.find(t => t.id === selectedId)
+    if (tool)
+      return tool
+  }
+
+  // Fallback to default tool
+  return getDefaultCliTool(platform)
 }
 
 // ============ Notification configuration ============

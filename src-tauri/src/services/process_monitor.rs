@@ -1,4 +1,5 @@
-use crate::types::common::{MonitoredSession, ProcessStatusChangedEvent, ResourceUpdateEvent};
+use crate::types::common::{ProcessStatusChangedEvent, ResourceUpdateEvent};
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 use sysinfo::System;
@@ -6,8 +7,14 @@ use tauri::{async_runtime, Emitter};
 use tokio::sync::RwLock;
 
 /// ProcessMonitor: watches monitored processes and emits events on status changes and resource usage.
+///
+/// Simplified design:
+/// - Only tracks PID (no start_time validation)
+/// - Emits resource updates for alive processes
+/// - Notifies frontend when PID disappears
+/// - Frontend is responsible for session lifecycle management
 pub struct ProcessMonitor {
-    sessions: Arc<RwLock<Vec<MonitoredSession>>>,
+    monitored_pids: Arc<RwLock<HashSet<u32>>>,
     app_handle: tauri::AppHandle,
 }
 
@@ -15,34 +22,39 @@ impl ProcessMonitor {
     /// Creates a new ProcessMonitor instance.
     pub fn new(app_handle: tauri::AppHandle) -> Self {
         Self {
-            sessions: Arc::new(RwLock::new(Vec::new())),
+            monitored_pids: Arc::new(RwLock::new(HashSet::new())),
             app_handle,
         }
     }
 
-    /// Add a new session to monitor
-    pub async fn add_session(&self, session_id: String, pid: u32, start_time: i64) {
-        let mut sessions = self.sessions.write().await;
-        sessions.push(MonitoredSession {
-            session_id,
-            pid,
-            start_time,
-        });
+    /// Add a new PID to monitor
+    pub async fn add_session(&self, pid: u32, _start_time: i64) {
+        let mut pids = self.monitored_pids.write().await;
+
+        if pids.contains(&pid) {
+            println!("[ProcessMonitor] PID {} already being monitored", pid);
+            return;
+        }
+
+        pids.insert(pid);
+        println!("[ProcessMonitor] Started monitoring PID {}", pid);
     }
 
-    /// Remove a monitored session
-    pub async fn remove_session(&self, session_id: &str) {
-        let mut sessions = self.sessions.write().await;
-        sessions.retain(|s| s.session_id != session_id);
+    /// Remove a PID from monitoring (called when frontend manually closes session)
+    pub async fn remove_session(&self, pid: u32) {
+        let mut pids = self.monitored_pids.write().await;
+        if pids.remove(&pid) {
+            println!("[ProcessMonitor] Stopped monitoring PID {}", pid);
+        }
     }
 
     /// Starts the monitoring loop
     pub fn start(&self) {
-        let sessions = Arc::clone(&self.sessions);
+        let monitored_pids = Arc::clone(&self.monitored_pids);
         let app_handle = self.app_handle.clone();
 
         async_runtime::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_secs(5));
+            let mut interval = tokio::time::interval(Duration::from_secs(1));
 
             // Create and maintain a System instance for accurate CPU usage calculation
             let mut sys = System::new_all();
@@ -50,40 +62,40 @@ impl ProcessMonitor {
             loop {
                 interval.tick().await;
 
-                // Take a snapshot of the sessions
-                let sessions_snapshot = sessions.read().await.clone();
+                // Take a snapshot of monitored PIDs
+                let pids_snapshot: Vec<u32> = monitored_pids.read().await.iter().copied().collect();
 
-                // Refresh process information (maintain the same System instance)
+                // Refresh process information
                 sys.refresh_processes();
 
-                // Check the status of each monitored session
-                for session in &sessions_snapshot {
-                    let pid = sysinfo::Pid::from_u32(session.pid);
+                // Check each monitored PID
+                for pid in pids_snapshot {
+                    let sysinfo_pid = sysinfo::Pid::from_u32(pid);
 
-                    if let Some(process) = sys.process(pid) {
-                        let actual_start_time = process.start_time() as i64;
-
-                        // Verify the start time to avoid PID reuse issues
-                        if (actual_start_time - session.start_time).abs() <= 5 {
-                            // Process is alive, emit resource update
-                            let _ = app_handle.emit(
-                                "resource-update",
-                                ResourceUpdateEvent {
-                                    session_id: session.session_id.clone(),
-                                    pid: session.pid,
-                                    cpu_usage: process.cpu_usage(),
-                                    memory_usage: process.memory() / 1024 / 1024,
-                                },
-                            );
-                        } else {
-                            // PID was reused, mark as closed
-                            emit_process_closed(&app_handle, &session.session_id, "killed");
-                            remove_from_monitor(&sessions, &session.session_id).await;
-                        }
+                    if let Some(process) = sys.process(sysinfo_pid) {
+                        // Process is alive, emit resource update
+                        let _ = app_handle.emit(
+                            "resource-update",
+                            ResourceUpdateEvent {
+                                pid,
+                                cpu_usage: process.cpu_usage(),
+                                memory_usage: process.memory() / 1024 / 1024,
+                            },
+                        );
                     } else {
-                        // Process does not exist, mark as closed
-                        emit_process_closed(&app_handle, &session.session_id, "manual");
-                        remove_from_monitor(&sessions, &session.session_id).await;
+                        // Process does not exist, notify frontend
+                        println!("[ProcessMonitor] PID {} no longer exists", pid);
+                        let _ = app_handle.emit(
+                            "process-status-changed",
+                            ProcessStatusChangedEvent {
+                                pid,
+                                new_status: "closed".to_string(),
+                                close_reason: Some("process-exited".to_string()),
+                            },
+                        );
+
+                        // Remove from monitoring
+                        monitored_pids.write().await.remove(&pid);
                     }
                 }
             }
@@ -91,20 +103,3 @@ impl ProcessMonitor {
     }
 }
 
-/// Emit process closed event
-fn emit_process_closed(app_handle: &tauri::AppHandle, session_id: &str, close_reason: &str) {
-    let _ = app_handle.emit(
-        "process-status-changed",
-        ProcessStatusChangedEvent {
-            session_id: session_id.to_string(),
-            new_status: "closed".to_string(),
-            close_reason: Some(close_reason.to_string()),
-        },
-    );
-}
-
-/// Remove session from monitor
-async fn remove_from_monitor(sessions: &Arc<RwLock<Vec<MonitoredSession>>>, session_id: &str) {
-    let mut sessions = sessions.write().await;
-    sessions.retain(|s| s.session_id != session_id);
-}

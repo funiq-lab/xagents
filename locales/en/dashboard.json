@@ -1,8 +1,8 @@
 {
   "project_label": "Projects",
   "project_helper": "Tracked projects",
-  "cpu_label": "Average CPU",
-  "cpu_helper": "Average usage across sessions",
+  "cpu_label": "CPU",
+  "cpu_helper": "Total usage across sessions",
   "memory_label": "Memory",
   "memory_helper": "Total usage across sessions",
   "cpu_title": "CPU chart",

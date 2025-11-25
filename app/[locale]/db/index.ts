@@ -1,5 +1,4 @@
-import { createGroup } from './operations/groups'
-import { createTag } from './operations/tags'
+import { closeZombieSessions } from './operations/sessions'
 // Database initialization
 import { db } from './schema'
 
@@ -22,7 +21,7 @@ export type {
   Settings,
   Tag,
 } from './schema'
-export type { ToolLaunchConfig, ToolPlatform, ToolType } from '@/types/tools'
+export type { Platform, ToolLaunchConfig, ToolType } from '@/types/tools'
 
 let isInitialized = false
 
@@ -34,29 +33,14 @@ export async function initializeDatabase(): Promise<void> {
     return
 
   try {
-    // Check if seed data already exists
-    const groupCount = await db.groups.count()
-    const tagCount = await db.tags.count()
-
-    if (groupCount === 0) {
-      // Add default groups
-      await createGroup('个人项目', '#3b82f6')
-      await createGroup('工作项目', '#10b981')
-      await createGroup('开源项目', '#8b5cf6')
-    }
-
-    if (tagCount === 0) {
-      // Add default tags
-      await createTag('React', '#61dafb')
-      await createTag('Python', '#3776ab')
-      await createTag('Rust', '#ce422b')
-      await createTag('TypeScript', '#3178c6')
-      await createTag('紧急', '#ef4444')
-      await createTag('学习中', '#f59e0b')
+    // Clean up zombie sessions from previous app runs
+    const closedCount = await closeZombieSessions()
+    if (closedCount > 0) {
+      console.info(`[XAgents] Cleaned up ${closedCount} zombie sessions from previous run`)
     }
 
     isInitialized = true
-    console.log('[XAgents] Database initialized successfully')
+    console.info('[XAgents] Database initialized successfully')
   }
   catch (error) {
     console.error('[XAgents] Database initialization failed:', error)
@@ -68,13 +52,13 @@ export async function initializeDatabase(): Promise<void> {
  */
 export async function resetDatabase(): Promise<void> {
   if (process.env.NODE_ENV === 'production') {
-    console.warn('[XAgents] Database reset is disabled in production')
+    console.error('[XAgents] Database reset is disabled in production')
     return
   }
 
   try {
     await db.delete()
-    console.log('[XAgents] Database reset successfully')
+    console.info('[XAgents] Database reset successfully')
 
     // Re-create database instance
     const newDb = new (db.constructor as new () => typeof db)()

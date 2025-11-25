@@ -7,6 +7,12 @@
   "windows": "Windows",
   "linux": "Linux",
   "card_title": "Tool Launch Configuration",
+  "cli_terminal_title": "Default Terminal",
+  "cli_terminal_description": "Choose the default terminal application to open projects in",
+  "ide_tools_title": "IDE Tools",
+  "ide_tools_description": "Built-in IDE tools (VSCode, Cursor) support window PID tracking and resource monitoring",
+  "ide_tools_note": "IDE tools are built-in and launch via command line, automatically obtaining window process PID for resource monitoring",
+  "cli_tools_note": "CLI tools attempt to find related AI assistant processes (claude, codex, gemini) after launch for resource monitoring if available",
   "ide": "IDE Tools",
   "cli": "CLI Tools",
   "reset": "Reset to Defaults",
@@ -41,6 +47,8 @@
     "Works on macOS, Windows, and Linux"
   ],
   "tip": {
+    "cli_tool_changed": "Terminal tool switched",
+    "cli_tool_change_failed": "Failed to switch terminal tool",
     "tool_summary": "Configure the command, display name, and process name.",
     "save_success": "Tool configuration updated",
     "save_failed": "Failed to save tool configuration",

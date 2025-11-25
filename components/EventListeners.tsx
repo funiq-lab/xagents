@@ -16,9 +16,8 @@ import {
 export function EventListeners() {
   const {
     updateResource,
-    updateSessionInfo,
     closeSession,
-    findSessionById,
+    findSessionByPid,
     loadActiveSessions,
   } = useSessionStore()
 
@@ -31,53 +30,56 @@ export function EventListeners() {
         const unlistenResource = await listenResourceUpdate((event) => {
           console.info('[EventListeners] Resource update:', event)
 
-          // Update resource data
-          updateResource(event.sessionId, {
-            pid: event.pid,
+          // Update resource data in memory only (NOT in database)
+          // Resource data is real-time and should not be persisted
+          updateResource(event.pid, {
             cpuUsage: event.cpuUsage,
             memoryUsage: event.memoryUsage,
           })
-
-          // Update session info
-          const session = findSessionById(event.sessionId)
-          if (session) {
-            updateSessionInfo(session.id!, {
-              cpuUsage: event.cpuUsage,
-              memoryUsage: event.memoryUsage,
-            })
-          }
         })
 
         // 2. Listen for process status changed events
         const unlistenStatus = await listenProcessStatusChanged((event) => {
           console.info('[EventListeners] Process status changed:', event)
 
-          const session = findSessionById(event.sessionId)
+          const session = findSessionByPid(event.pid)
           if (!session) {
-            console.error('[EventListeners] Session not found:', event.sessionId)
+            console.error('[EventListeners] Session not found for PID:', event.pid)
             return
           }
 
-          // If the process is closed, update the session status
+          // If the process is closed, close the session
+          // Note: Use 'auto-timeout' to indicate process exited naturally
+          // (not manually killed by user)
           if (event.newStatus === 'closed') {
-            closeSession(session.id!, event.closeReason)
+            const closeReason = event.closeReason === 'process-exited' ? 'auto-timeout' : 'manual'
 
-            // Show a toast notification
-            const reasonText
-              = event.closeReason === 'manual'
-                ? t('global.manually_closed')
-                : event.closeReason === 'crashed'
-                  ? t('global.crashed')
-                  : event.closeReason === 'killed'
-                    ? t('global.killed')
-                    : t('global.completed')
-
-            toast.info(t('global.close'), {
-              description: t('global.tip.process', {
-                name: session.toolName,
-                reason: reasonText,
-              }),
+            closeSession(session.id!, closeReason).catch((error) => {
+              console.error('[EventListeners] Failed to close session:', error)
             })
+
+            // Show a toast notification only for non-natural exits
+            if (event.closeReason !== 'process-exited') {
+              const reasonText
+                = event.closeReason === 'manual'
+                  ? t('global.manually_closed')
+                  : event.closeReason === 'crashed'
+                    ? t('global.crashed')
+                    : event.closeReason === 'killed'
+                      ? t('global.killed')
+                      : t('global.completed')
+
+              toast.info(t('global.close'), {
+                description: t('global.tip.process', {
+                  name: session.toolName,
+                  reason: reasonText,
+                }),
+              })
+            }
+            else {
+              // Process exited naturally, just log it
+              console.info(`[EventListeners] Process ${event.pid} (${session.toolName}) exited naturally`)
+            }
           }
         })
 
@@ -104,7 +106,7 @@ export function EventListeners() {
     return () => {
       cleanup.then(fn => fn && fn())
     }
-  }, [t, updateResource, updateSessionInfo, closeSession, findSessionById, loadActiveSessions])
+  }, [t, updateResource, closeSession, findSessionByPid, loadActiveSessions])
 
   // This component does not render any content
   return null

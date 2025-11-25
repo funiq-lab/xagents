@@ -1,19 +1,18 @@
 import { create } from 'zustand'
-import { createSession, type CreateSessionInput, getActiveSessions, type ProcessSession, updateSessionResources, updateSessionStatus } from '../db'
+import { unregisterSession } from '@/utils/tauri'
+import { createSession, type CreateSessionInput, getActiveSessions, type ProcessSession, updateSessionStatus } from '../db'
 
 export interface ResourceData {
-  pid: number
   cpuUsage: number
   memoryUsage: number
-  lastUpdate: number
 }
 
 export interface SessionStore {
   // Active process sessions
   activeSessions: ProcessSession[]
 
-  // Live resource data (sessionId -> ResourceData)
-  resourceData: Map<string, ResourceData>
+  // Real-time resource data from process monitor
+  resourceData: Map<number, ResourceData>
 
   // Loading indicator
   isLoading: boolean
@@ -21,31 +20,17 @@ export interface SessionStore {
   // Store actions
   loadActiveSessions: () => Promise<void>
   addSession: (data: CreateSessionInput) => Promise<number>
-  closeSession: (sessionId: number, closeReason?: 'manual' | 'completed' | 'crashed' | 'killed') => Promise<void>
-
-  // Update resource metrics
-  updateResource: (sessionId: string, data: Omit<ResourceData, 'lastUpdate'>) => void
-
-  // Update persisted session info
-  updateSessionInfo: (
-    sessionId: number,
-    data: {
-      cpuUsage?: number
-      memoryUsage?: number
-      progress?: number
-      lastOutput?: string
-      tokenUsage?: { used: number, total?: number }
-    }
-  ) => Promise<void>
+  closeSession: (sessionRecordId: number, closeReason?: 'manual' | 'auto-timeout') => Promise<void>
+  completeSession: (sessionRecordId: number) => Promise<void>
 
   // Find session by PID
   findSessionByPid: (pid: number) => ProcessSession | undefined
 
-  // Find session by string sessionId
-  findSessionById: (sessionId: string) => ProcessSession | undefined
-
   // Return active sessions for a project
   getProjectActiveSessions: (projectId: number) => ProcessSession[]
+
+  // Update resource data (in-memory only, not persisted)
+  updateResource: (pid: number, data: ResourceData) => void
 
   // Initialize store
   initialize: () => Promise<void>
@@ -53,7 +38,7 @@ export interface SessionStore {
 
 export const useSessionStore = create<SessionStore>((set, get) => ({
   activeSessions: [],
-  resourceData: new Map(),
+  resourceData: new Map<number, ResourceData>(),
   isLoading: false,
 
   // ============ Load data ============
@@ -80,65 +65,68 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     return id
   },
 
-  closeSession: async (sessionId, closeReason) => {
-    // Lookup session to access UUID sessionId
-    const session = get().activeSessions.find(s => s.id === sessionId)
+  closeSession: async (sessionRecordId, closeReason = 'manual') => {
+    // Find the session before closing
+    const session = get().activeSessions.find(s => s.id === sessionRecordId)
 
-    await updateSessionStatus(sessionId, 'closed', closeReason)
-    await get().loadActiveSessions()
+    try {
+      // Update database status
+      await updateSessionStatus(sessionRecordId, 'closed', closeReason)
 
-    // Remove entry from resource map (uses UUID sessionId just like updateResource)
-    if (session?.sessionId) {
-      set((state) => {
-        const newResourceData = new Map(state.resourceData)
-        newResourceData.delete(session.sessionId!)
-        return { resourceData: newResourceData }
-      })
+      // Don't close process for now, only unregister
+      // If manual close and process is still running, kill it
+      // if (closeReason === 'manual' && session?.pid && session.toolType === 'cli') {
+      //   try {
+      //     await killProcess(session.pid)
+      //     console.info('[SessionStore] Killed process:', session.pid)
+      //   }
+      //   catch (error) {
+      //     console.error('[SessionStore] Failed to kill process:', error)
+      //     // Continue even if kill fails (process might already be dead)
+      //   }
+      // }
+
+      // Unregister from monitor
+      if (session?.pid) {
+        try {
+          await unregisterSession(session.pid)
+          console.info('[SessionStore] Unregistered session from monitor:', session.pid)
+        }
+        catch (error) {
+          console.error('[SessionStore] Failed to unregister session:', error)
+        }
+      }
+
+      // Reload active sessions
+      await get().loadActiveSessions()
+    }
+    catch (error) {
+      console.error('[SessionStore] Close session failed:', error)
+      throw error
     }
   },
 
-  // ============ Resource updates ============
-
-  updateResource: (sessionId, data) => {
-    set((state) => {
-      const newResourceData = new Map(state.resourceData)
-      newResourceData.set(sessionId, {
-        ...data,
-        lastUpdate: Date.now(),
-      })
-      return { resourceData: newResourceData }
-    })
-  },
-
-  updateSessionInfo: async (sessionId, data) => {
-    await updateSessionResources(sessionId, data)
-
-    // Update local state
-    set(state => ({
-      activeSessions: state.activeSessions.map(session =>
-        session.id === sessionId ? { ...session, ...data } : session,
-      ),
-    }))
+  completeSession: async (sessionRecordId) => {
+    await updateSessionStatus(sessionRecordId, 'completed')
+    await get().loadActiveSessions()
   },
 
   // ============ Query helpers ============
 
-  findSessionByPid: (pid) => {
-    return get().activeSessions.find(s => s.pid === pid)
-  },
-
-  findSessionById: (sessionId) => {
-    // Try matching by UUID sessionId first
-    const bySessionId = get().activeSessions.find(s => s.sessionId === sessionId)
-    if (bySessionId)
-      return bySessionId
-
-    // Fallback to legacy numeric ID if needed
-    return get().activeSessions.find(s => s.id?.toString() === sessionId)
-  },
+  findSessionByPid: pid => get().activeSessions.find(s => s.pid === pid),
 
   getProjectActiveSessions: (projectId) => {
     return get().activeSessions.filter(s => s.projectId === projectId)
+  },
+
+  // ============ Resource updates ============
+
+  updateResource: (pid, data) => {
+    set((state) => {
+      const newResourceData = new Map(state.resourceData)
+      newResourceData.set(pid, data)
+      return { resourceData: newResourceData }
+    })
   },
 
   // ============ Initialization ============

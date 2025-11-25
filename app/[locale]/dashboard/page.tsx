@@ -1,6 +1,7 @@
 'use client'
 
 import type { ResourceData } from '../stores/useSessionStore'
+import { isNil } from 'lodash-es'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -13,10 +14,10 @@ import { StatsCard } from './components/StatsCard'
 const TIME_SLOTS = ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '24:00']
 
 function formatMemory(value: number) {
-  if (!Number.isFinite(value) || value <= 0)
+  if (!Number.isFinite(value) || isNil(value) || value < 0)
     return '--'
   if (value >= 1024)
-    return `${(value / 1024).toFixed(1)} GB`
+    return `${(value / 1024).toFixed(2)} GB`
   return `${value.toFixed(0)} MB`
 }
 
@@ -31,11 +32,11 @@ function buildChartSeries(samples: number[]): ChartPoint[] {
   })
 }
 
-function getSessionMetrics(session: ProcessSession, resourceData: Map<string, ResourceData>) {
-  const live = session.sessionId ? resourceData.get(session.sessionId) : undefined
+function getSessionMetrics(session: ProcessSession, resourceData: Map<number, ResourceData>) {
+  const live = session.pid ? resourceData.get(session.pid) : undefined
   return {
-    cpu: live?.cpuUsage ?? session.cpuUsage ?? 0,
-    memory: live?.memoryUsage ?? session.memoryUsage ?? 0,
+    cpu: live?.cpuUsage ?? 0,
+    memory: live?.memoryUsage ?? 0,
   }
 }
 
@@ -83,14 +84,12 @@ export default function DashboardPage() {
         memoryValues.push(metrics.memory)
     })
 
-    const averageCpu = cpuValues.length
-      ? cpuValues.reduce((sum, value) => sum + value, 0) / cpuValues.length
-      : 0
+    const totalCpu = cpuValues.reduce((sum, value) => sum + value, 0)
     const totalMemory = memoryValues.reduce((sum, value) => sum + value, 0)
 
     return {
       totalProjects: projects.length,
-      averageCpu,
+      totalCpu,
       totalMemory,
     }
   }, [projects, activeSessions, resourceData])
@@ -105,11 +104,11 @@ export default function DashboardPage() {
     return buildChartSeries(samples)
   }, [activeSessions, resourceData])
 
-  const handleTerminateSessions = useCallback(async (sessionIds: number[]) => {
+  const handleTerminateSessions = useCallback(async (sessionRecordIds: number[]) => {
     try {
-      await Promise.all(sessionIds.map(id => closeSession(id)))
+      await Promise.all(sessionRecordIds.map(id => closeSession(id)))
       toast.success(t('dashboard.tip.close_success_title'), {
-        description: t('dashboard.tip.close_success_description', { count: sessionIds.length }),
+        description: t('dashboard.tip.close_success_description', { count: sessionRecordIds.length }),
       })
     }
     catch (error) {
@@ -143,17 +142,17 @@ export default function DashboardPage() {
         const metrics = sessions.map(session => getSessionMetrics(session, resourceData))
         const avgCpu = metrics.reduce((sum, metric) => sum + metric.cpu, 0) / metrics.length
         const totalMemory = metrics.reduce((sum, metric) => sum + metric.memory, 0)
-        const sessionIds = sessions.map(session => session.id).filter((id): id is number => typeof id === 'number')
+        const sessionRecordIds = sessions.map(session => session.id).filter((id): id is number => typeof id === 'number')
 
         return {
           id: project.id,
           name: project.name,
           servers: sessions.map(session => session.toolName).join(', '),
-          cpu: `${avgCpu.toFixed(1)}%`,
+          cpu: `${avgCpu.toFixed(2)}%`,
           memory: formatMemory(totalMemory),
           onInspect: () => handleOpenFolder(project.path),
-          onTerminate: sessionIds.length
-            ? () => handleTerminateSessions(sessionIds)
+          onTerminate: sessionRecordIds.length
+            ? () => handleTerminateSessions(sessionRecordIds)
             : undefined,
         }
       })
@@ -182,7 +181,7 @@ export default function DashboardPage() {
           />
           <StatsCard
             label={t('dashboard.cpu_label')}
-            value={`${stats.averageCpu.toFixed(1)}%`}
+            value={`${stats.totalCpu.toFixed(2)}%`}
             helperText={t('dashboard.cpu_helper')}
           />
           <StatsCard

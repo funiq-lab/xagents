@@ -7,6 +7,12 @@
   "windows": "Windows",
   "linux": "Linux",
   "card_title": "工具启动配置",
+  "cli_terminal_title": "默认终端工具",
+  "cli_terminal_description": "选择在项目中打开终端时使用的默认终端应用",
+  "ide_tools_title": "IDE 工具",
+  "ide_tools_description": "内置 IDE 工具（VSCode、Cursor）支持窗口 PID 追踪和资源监控",
+  "ide_tools_note": "IDE 工具固定内置，通过命令行启动后自动获取窗口进程 PID 以监控资源使用情况",
+  "cli_tools_note": "CLI 工具启动后会尝试查找相关 AI 助手进程（claude、codex、gemini），如果找到则支持资源监控",
   "ide": "IDE 工具",
   "cli": "CLI 工具",
   "reset": "恢复默认配置",
@@ -41,6 +47,8 @@
     "兼容 macOS、Windows 与 Linux"
   ],
   "tip": {
+    "cli_tool_changed": "终端工具已切换",
+    "cli_tool_change_failed": "切换终端工具失败",
     "tool_summary": "配置命令、显示名称与进程名称。",
     "save_success": "工具配置已更新",
     "save_failed": "保存工具配置失败",

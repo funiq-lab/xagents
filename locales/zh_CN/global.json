@@ -10,6 +10,7 @@
   "crashed": "崩溃",
   "killed": "被终止",
   "completed": "已完成",
+  "auto_timeout": "自动清理",
   "cancel": "取消",
   "delete": "删除",
   "save": "保存",
