@@ -91,26 +91,3 @@ export async function cleanupOldSessions(daysAgo = 30): Promise<void> {
     .and(session => session.status !== 'running')
     .delete()
 }
-
-/**
- * Close all zombie sessions (sessions marked as running but no longer active)
- * This should be called on app startup to clean up sessions from previous runs
- */
-export async function closeZombieSessions(): Promise<number> {
-  const runningSessions = await getActiveSessions()
-
-  if (runningSessions.length === 0) {
-    return 0
-  }
-
-  // Mark all running sessions as closed with auto-timeout reason
-  // because they were left running from previous app session
-  const updatePromises = runningSessions.map(session =>
-    updateSessionStatus(session.id!, 'closed', 'auto-timeout'),
-  )
-
-  await Promise.all(updatePromises)
-
-  console.info(`[DB] Closed ${runningSessions.length} zombie sessions`)
-  return runningSessions.length
-}

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { unregisterSession } from '@/utils/tauri'
+import { registerSession, unregisterSession } from '@/utils/tauri'
 import { createSession, type CreateSessionInput, getActiveSessions, type ProcessSession, updateSessionStatus } from '../db'
 
 export interface ResourceData {
@@ -133,5 +133,31 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   initialize: async () => {
     await get().loadActiveSessions()
+
+    // Auto-register all active sessions with process monitor
+    const { activeSessions } = get()
+    console.info('[SessionStore] Registering active sessions:', activeSessions.length)
+
+    for (const session of activeSessions) {
+      if (session.pid && session.startTime) {
+        try {
+          await registerSession(session.pid, session.startTime)
+          console.info('[SessionStore] Registered session:', {
+            id: session.id,
+            pid: session.pid,
+            tool: session.toolName,
+          })
+        }
+        catch (error) {
+          console.error('[SessionStore] Failed to register session:', {
+            id: session.id,
+            pid: session.pid,
+            error,
+          })
+        }
+      }
+    }
+
+    console.info('[SessionStore] Initialization completed')
   },
 }))

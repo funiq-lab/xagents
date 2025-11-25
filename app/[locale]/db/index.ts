@@ -1,4 +1,3 @@
-import { closeZombieSessions } from './operations/sessions'
 // Database initialization
 import { db } from './schema'
 
@@ -33,12 +32,6 @@ export async function initializeDatabase(): Promise<void> {
     return
 
   try {
-    // Clean up zombie sessions from previous app runs
-    const closedCount = await closeZombieSessions()
-    if (closedCount > 0) {
-      console.info(`[XAgents] Cleaned up ${closedCount} zombie sessions from previous run`)
-    }
-
     isInitialized = true
     console.info('[XAgents] Database initialized successfully')
   }

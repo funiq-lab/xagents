@@ -22,7 +22,6 @@
     "open_folder_success_title": "已打开项目文件夹",
     "open_folder_success_description": "已在系统中打开 {{path}}。",
     "open_folder_failed_title": "打开文件夹失败",
-    "open_folder_unsupported": "请在桌面应用中使用该功能以打开项目文件夹。",
     "empty_sessions": "暂无活跃会话"
   }
 }

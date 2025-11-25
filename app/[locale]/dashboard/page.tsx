@@ -1,12 +1,11 @@
 'use client'
 
 import type { ResourceData } from '../stores/useSessionStore'
-import { openPath } from '@tauri-apps/plugin-opener'
+import { revealItemInDir } from '@tauri-apps/plugin-opener'
 import { isNil } from 'lodash-es'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { isTauriEnvironment } from '@/utils/env'
 import { initializeDatabase, type ProcessSession } from '../db'
 import { useProjectStore, useSessionStore, useSettingsStore } from '../stores'
 import { ChartCard, type ChartPoint } from './components/ChartCard'
@@ -21,17 +20,6 @@ function formatMemory(value: number) {
   if (value >= 1024)
     return `${(value / 1024).toFixed(2)} GB`
   return `${value.toFixed(0)} MB`
-}
-
-function buildChartSeries(samples: number[]): ChartPoint[] {
-  const sanitized = samples.length > 0 ? samples : [0]
-  return TIME_SLOTS.map((slot, index) => {
-    const source = sanitized[index % sanitized.length] ?? 0
-    return {
-      label: slot,
-      value: Number(source.toFixed(1)),
-    }
-  })
 }
 
 function getSessionMetrics(session: ProcessSession, resourceData: Map<number, ResourceData>) {
@@ -96,15 +84,59 @@ export default function DashboardPage() {
     }
   }, [projects, activeSessions, resourceData])
 
-  const cpuChartData = useMemo(() => {
-    const samples = activeSessions.map(session => getSessionMetrics(session, resourceData).cpu)
-    return buildChartSeries(samples)
-  }, [activeSessions, resourceData])
+  const cpuChartData = useMemo<ChartPoint[]>(() => {
+    // Group sessions by project and calculate total CPU per project
+    const projectMetrics = new Map<number, { name: string, cpu: number }>()
 
-  const memoryChartData = useMemo(() => {
-    const samples = activeSessions.map(session => getSessionMetrics(session, resourceData).memory)
-    return buildChartSeries(samples)
-  }, [activeSessions, resourceData])
+    projects.forEach((project) => {
+      if (!project.id)
+        return
+
+      const projectSessions = activeSessions.filter(s => s.projectId === project.id)
+      const totalCpu = projectSessions.reduce((sum, session) => {
+        return sum + getSessionMetrics(session, resourceData).cpu
+      }, 0)
+
+      if (totalCpu >= 0) {
+        projectMetrics.set(project.id, {
+          name: project.name,
+          cpu: totalCpu,
+        })
+      }
+    })
+
+    return Array.from(projectMetrics.values()).map(p => ({
+      label: p.name,
+      value: p.cpu,
+    }))
+  }, [projects, activeSessions, resourceData])
+
+  const memoryChartData = useMemo<ChartPoint[]>(() => {
+    // Group sessions by project and calculate total memory per project
+    const projectMetrics = new Map<number, { name: string, memory: number }>()
+
+    projects.forEach((project) => {
+      if (!project.id)
+        return
+
+      const projectSessions = activeSessions.filter(s => s.projectId === project.id)
+      const totalMemory = projectSessions.reduce((sum, session) => {
+        return sum + getSessionMetrics(session, resourceData).memory
+      }, 0)
+
+      if (totalMemory >= 0) {
+        projectMetrics.set(project.id, {
+          name: project.name,
+          memory: totalMemory,
+        })
+      }
+    })
+
+    return Array.from(projectMetrics.values()).map(p => ({
+      label: p.name,
+      value: p.memory,
+    }))
+  }, [projects, activeSessions, resourceData])
 
   const handleTerminateSessions = useCallback(async (sessionRecordIds: number[]) => {
     try {
@@ -125,13 +157,8 @@ export default function DashboardPage() {
   }, [closeSession, t])
 
   const handleOpenFolder = useCallback(async (projectPath: string) => {
-    if (!isTauriEnvironment()) {
-      toast.info(t('dashboard.tip.open_folder_unsupported'))
-      return
-    }
-
     try {
-      await openPath(projectPath)
+      await revealItemInDir(projectPath)
       toast.success(t('dashboard.tip.open_folder_success_title'), {
         description: t('dashboard.tip.open_folder_success_description', { path: projectPath }),
       })
@@ -210,8 +237,8 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
-          <ChartCard title={t('dashboard.cpu_title')} data={cpuChartData} />
-          <ChartCard title={t('dashboard.memory_title')} data={memoryChartData} />
+          <ChartCard title={t('dashboard.cpu_title')} data={cpuChartData} unit="%" />
+          <ChartCard title={t('dashboard.memory_title')} data={memoryChartData} unit=" MB" />
         </div>
 
         <ProjectsTable projects={projectsTableRows} className="min-h-[400px]" />

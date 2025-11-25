@@ -795,7 +795,7 @@ export default function ProjectsPage() {
                           </div>
                           <div className="flex items-center gap-1 text-muted-foreground">
                             <HardDrive className="w-3 h-3" />
-                            {memory ? formatMemory(memory) : '--'}
+                            {memory && !isNil(memory) ? formatMemory(memory) : '--'}
                           </div>
                           {session.id && (
                             <Button

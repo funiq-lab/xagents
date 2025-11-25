@@ -33,8 +33,8 @@ export function EventListeners() {
           // Update resource data in memory only (NOT in database)
           // Resource data is real-time and should not be persisted
           updateResource(event.pid, {
-            cpuUsage: event.cpuUsage,
-            memoryUsage: event.memoryUsage,
+            cpuUsage: event.cpuUsage ?? 0,
+            memoryUsage: event.memoryUsage ?? 0,
           })
         })
 
