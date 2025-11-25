@@ -1,6 +1,6 @@
 'use client'
 
-import type { Group, Project, Tag } from '../../db'
+import type { Group, Project, Tag } from '@/plugins/db'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { FolderOpen, Plus, X } from 'lucide-react'
 import { useEffect, useState } from 'react'

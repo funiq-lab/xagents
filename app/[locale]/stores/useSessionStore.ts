@@ -1,6 +1,6 @@
 import { create } from 'zustand'
+import { createSession, type CreateSessionInput, getActiveSessions, type ProcessSession, updateSessionStatus } from '@/plugins/db'
 import { registerSession, unregisterSession } from '@/utils/tauri'
-import { createSession, type CreateSessionInput, getActiveSessions, type ProcessSession, updateSessionStatus } from '../db'
 
 export interface ResourceData {
   cpuUsage: number

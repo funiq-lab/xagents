@@ -1,6 +1,6 @@
 'use client'
 
-import type { Tag } from '../../db'
+import type { Tag } from '@/plugins/db'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'

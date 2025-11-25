@@ -13,9 +13,10 @@ export function PageHeader() {
   const { t } = useTranslation(['global'])
 
   const labelMap = useMemo<Record<string, string>>(() => ({
-    dashboard: t('global.dashboard'),
-    projects: t('global.projects'),
-    settings: t('global.settings'),
+    'config-management': t('global.config_management'),
+    'dashboard': t('global.dashboard'),
+    'projects': t('global.projects'),
+    'settings': t('global.settings'),
   }), [t])
 
   const currentLabel = useMemo(() => {
@@ -35,7 +36,7 @@ export function PageHeader() {
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
-      <Separator orientation="vertical" className="mr-2 h-4" />
+      <Separator orientation="vertical" className="h-4" />
       <LangSelect />
       <ThemeModeToggle />
     </header>

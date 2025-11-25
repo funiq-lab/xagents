@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { bulkDeleteProjects as bulkDeleteProjectsDb, bulkUpdateProjects as bulkUpdateProjectsDb, createGroup, createProject, type CreateProjectInput, createProjectsBulk, createTag, deleteGroup, deleteProject, deleteTag, filterProjects, getAllGroups, getAllProjects, getAllTags, type Group, type Project, type ProjectFilter, type Tag, updateGroup, updateProject, updateTag } from '../db'
+import { bulkDeleteProjects as bulkDeleteProjectsDb, bulkUpdateProjects as bulkUpdateProjectsDb, createGroup, createProject, type CreateProjectInput, createProjectsBulk, createTag, deleteGroup, deleteProject, deleteTag, filterProjects, getAllGroups, getAllProjects, getAllTags, type Group, type Project, type ProjectFilter, type Tag, updateGroup, updateProject, updateTag } from '@/plugins/db'
 
 export interface ProjectStore {
   projects: Project[]

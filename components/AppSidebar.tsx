@@ -1,6 +1,6 @@
 'use client'
 
-import { FolderKanban, LayoutDashboard, Settings } from 'lucide-react'
+import { FolderKanban, LayoutDashboard, Settings, Wrench } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -39,6 +39,12 @@ export function AppSidebar({ locale }: AppSidebarProps) {
       icon: FolderKanban,
       href: (targetLocale: string) => `/${targetLocale}/projects`,
     },
+    {
+      key: 'config-management',
+      label: t('global.config_management'),
+      icon: Wrench,
+      href: (targetLocale: string) => `/${targetLocale}/config-management`,
+    },
   ], [t])
 
   const activeKey = useMemo(() => {
@@ -49,6 +55,10 @@ export function AppSidebar({ locale }: AppSidebarProps) {
       return 'projects'
     if (pathname.includes('/dashboard'))
       return 'dashboard'
+    if (pathname.includes('/config-management'))
+      return 'config-management'
+    if (pathname.includes('/settings'))
+      return 'settings'
     return 'dashboard'
   }, [pathname])
 
@@ -93,7 +103,7 @@ export function AppSidebar({ locale }: AppSidebarProps) {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip={t('global.settings')} onClick={() => navigate(`/${locale}/settings`)}>
+            <SidebarMenuButton isActive={activeKey === 'settings'} tooltip={t('global.settings')} onClick={() => navigate(`/${locale}/settings`)}>
               <Settings />
               <span>{t('global.settings')}</span>
             </SidebarMenuButton>

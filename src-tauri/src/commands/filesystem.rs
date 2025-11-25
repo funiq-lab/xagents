@@ -35,11 +35,7 @@ pub async fn select_directory(
             builder = builder.set_directory(PathBuf::from(default_path));
         }
 
-        Ok::<_, String>(
-            builder
-                .blocking_pick_folder()
-                .map(|path| path.to_string()),
-        )
+        Ok::<_, String>(builder.blocking_pick_folder().map(|path| path.to_string()))
     })
     .await
     .map_err(|error| error.to_string())?

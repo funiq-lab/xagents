@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { type BuiltinCliTool, getAvailableCliTools, type Platform } from '@/types/tools'
 import {
   getNotificationConfig,
   getSelectedCliTool,
@@ -7,7 +6,8 @@ import {
   type NotificationConfig,
   saveNotificationConfig,
   setSelectedCliToolId,
-} from '../db'
+} from '@/plugins/db'
+import { type BuiltinCliTool, getAvailableCliTools, type Platform } from '@/types/tools'
 
 export interface SettingsStore {
   // Platform

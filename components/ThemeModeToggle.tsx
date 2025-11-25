@@ -46,15 +46,15 @@ export default function ThemeModeToggle({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => handleMode('system')}>
-          <Monitor className="mr-2 h-4 w-4" />
+          <Monitor className="h-4 w-4" />
           <span>{t('global.system')}</span>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => handleMode('light')}>
-          <Sun className="mr-2 h-4 w-4" />
+          <Sun className="h-4 w-4" />
           <span>{t('global.light')}</span>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => handleMode('dark')}>
-          <Moon className="mr-2 h-4 w-4" />
+          <Moon className="h-4 w-4" />
           <span>{t('global.dark')}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>

@@ -1,9 +1,8 @@
+import type { NotificationConfig } from '../schema'
 import { getAvailableCliTools, getDefaultCliTool, type Platform } from '@/types/tools'
-import { db, type NotificationConfig } from '../schema'
+import { loadState, mutateState } from '../store'
 
 const SELECTED_CLI_TOOL_KEY = 'selected_cli_tool'
-
-// ============ Platform detection ============
 
 function detectPlatform(): Platform {
   if (typeof navigator !== 'undefined') {
@@ -34,48 +33,51 @@ export function getToolPlatform(): Platform {
   return detectPlatform()
 }
 
-// ============ CLI Tool Selection ============
-
-/**
- * Get selected CLI tool ID for current platform
- */
-export async function getSelectedCliToolId(platform: Platform = detectPlatform()): Promise<string | undefined> {
-  const key = `${SELECTED_CLI_TOOL_KEY}_${platform}`
-  const setting = await db.settings.get(key)
-  return setting?.value as string | undefined
+async function getSettingRecord(key: string) {
+  const state = await loadState()
+  return state.settings.find(setting => setting.key === key)
 }
 
-/**
- * Set selected CLI tool ID for current platform
- */
-export async function setSelectedCliToolId(toolId: string, platform: Platform = detectPlatform()): Promise<void> {
-  const key = `${SELECTED_CLI_TOOL_KEY}_${platform}`
-  await db.settings.put({
-    key,
-    value: toolId,
-    updatedAt: Date.now(),
+async function upsertSetting(key: string, value: unknown): Promise<void> {
+  await mutateState((state) => {
+    const existing = state.settings.find(setting => setting.key === key)
+    if (existing) {
+      existing.value = value
+      existing.updatedAt = Date.now()
+    }
+    else {
+      state.settings.push({
+        key,
+        value,
+        updatedAt: Date.now(),
+      })
+    }
   })
 }
 
-/**
- * Get the currently selected CLI tool, with fallback to default
- */
+export async function getSelectedCliToolId(platform: Platform = detectPlatform()): Promise<string | undefined> {
+  const key = `${SELECTED_CLI_TOOL_KEY}_${platform}`
+  const record = await getSettingRecord(key)
+  return record?.value as string | undefined
+}
+
+export async function setSelectedCliToolId(toolId: string, platform: Platform = detectPlatform()): Promise<void> {
+  const key = `${SELECTED_CLI_TOOL_KEY}_${platform}`
+  await upsertSetting(key, toolId)
+}
+
 export async function getSelectedCliTool(platform: Platform = detectPlatform()) {
   const selectedId = await getSelectedCliToolId(platform)
   const availableTools = getAvailableCliTools(platform)
 
-  // Find the selected tool
   if (selectedId) {
-    const tool = availableTools.find(t => t.id === selectedId)
+    const tool = availableTools.find(item => item.id === selectedId)
     if (tool)
       return tool
   }
 
-  // Fallback to default tool
   return getDefaultCliTool(platform)
 }
-
-// ============ Notification configuration ============
 
 const DEFAULT_NOTIFICATION_CONFIG: NotificationConfig = {
   enabled: true,
@@ -90,44 +92,33 @@ const DEFAULT_NOTIFICATION_CONFIG: NotificationConfig = {
 }
 
 export async function getNotificationConfig(): Promise<NotificationConfig> {
-  const setting = await db.settings.get('notification_config')
-  return (setting?.value as NotificationConfig) || DEFAULT_NOTIFICATION_CONFIG
+  const record = await getSettingRecord('notification_config')
+  return (record?.value as NotificationConfig) || DEFAULT_NOTIFICATION_CONFIG
 }
 
 export async function saveNotificationConfig(config: NotificationConfig): Promise<void> {
-  await db.settings.put({
-    key: 'notification_config',
-    value: config,
-    updatedAt: Date.now(),
-  })
+  await upsertSetting('notification_config', config)
 }
 
-// ============ Generic settings helpers ============
-
 export async function getSetting<T = unknown>(key: string): Promise<T | undefined> {
-  const setting = await db.settings.get(key)
-  return setting?.value as T | undefined
+  const record = await getSettingRecord(key)
+  return record?.value as T | undefined
 }
 
 export async function saveSetting(key: string, value: unknown): Promise<void> {
-  await db.settings.put({
-    key,
-    value,
-    updatedAt: Date.now(),
-  })
+  await upsertSetting(key, value)
 }
 
 export async function deleteSetting(key: string): Promise<void> {
-  await db.settings.delete(key)
+  await mutateState((state) => {
+    state.settings = state.settings.filter(setting => setting.key !== key)
+  })
 }
 
 export async function getAllSettings(): Promise<Record<string, unknown>> {
-  const settings = await db.settings.toArray()
-  return settings.reduce(
-    (acc, s) => {
-      acc[s.key] = s.value
-      return acc
-    },
-    {} as Record<string, unknown>,
-  )
+  const state = await loadState()
+  return state.settings.reduce<Record<string, unknown>>((acc, setting) => {
+    acc[setting.key] = setting.value
+    return acc
+  }, {})
 }

@@ -6,13 +6,10 @@ import { isNil } from 'lodash-es'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { initializeDatabase, type ProcessSession } from '../db'
+import { initializeDatabase, type ProcessSession } from '@/plugins/db'
 import { useProjectStore, useSessionStore, useSettingsStore } from '../stores'
 import { ChartCard, type ChartPoint } from './components/ChartCard'
 import { ProjectsTable, type ProjectsTableRow } from './components/ProjectsTable'
-import { StatsCard } from './components/StatsCard'
-
-const TIME_SLOTS = ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '24:00']
 
 function formatMemory(value: number) {
   if (!Number.isFinite(value) || isNil(value) || value < 0)
@@ -32,6 +29,7 @@ function getSessionMetrics(session: ProcessSession, resourceData: Map<number, Re
 
 export default function DashboardPage() {
   const [isInitialized, setIsInitialized] = useState(false)
+  const [isChartsExpanded, setIsChartsExpanded] = useState(false)
   const {
     projects,
     initialize: initializeProjects,
@@ -218,27 +216,25 @@ export default function DashboardPage() {
   return (
     <div className="flex-1 flex flex-col gap-6 p-6 overflow-y-auto">
       <div className="flex flex-col gap-6">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <StatsCard
-            label={t('dashboard.project_label')}
-            value={stats.totalProjects}
-            helperText={t('dashboard.project_helper')}
-          />
-          <StatsCard
-            label={t('dashboard.cpu_label')}
-            value={`${stats.totalCpu.toFixed(2)}%`}
+        <div className="grid gap-4 md:grid-cols-2">
+          <ChartCard
+            title={t('dashboard.cpu_label')}
+            data={cpuChartData}
+            unit="%"
+            totalValue={`${stats.totalCpu.toFixed(2)}%`}
             helperText={t('dashboard.cpu_helper')}
+            isExpanded={isChartsExpanded}
+            onToggleExpand={() => setIsChartsExpanded(!isChartsExpanded)}
           />
-          <StatsCard
-            label={t('dashboard.memory_label')}
-            value={formatMemory(stats.totalMemory)}
+          <ChartCard
+            title={t('dashboard.memory_label')}
+            data={memoryChartData}
+            unit=" MB"
+            totalValue={formatMemory(stats.totalMemory)}
             helperText={t('dashboard.memory_helper')}
+            isExpanded={isChartsExpanded}
+            onToggleExpand={() => setIsChartsExpanded(!isChartsExpanded)}
           />
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <ChartCard title={t('dashboard.cpu_title')} data={cpuChartData} unit="%" />
-          <ChartCard title={t('dashboard.memory_title')} data={memoryChartData} unit=" MB" />
         </div>
 
         <ProjectsTable projects={projectsTableRows} className="min-h-[400px]" />

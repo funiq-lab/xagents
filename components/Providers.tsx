@@ -20,7 +20,7 @@ export default function Providers({ children }: ProvidersProps) {
 
     <I18nextProvider i18n={i18next}>
       <ProgressProvider options={{ showSpinner: false }}>
-        <ThemeProvider attribute="class" enableSystem defaultTheme="dark">
+        <ThemeProvider attribute="class" enableSystem defaultTheme="light">
           <MessageBoxProvider>
             {children}
           </MessageBoxProvider>

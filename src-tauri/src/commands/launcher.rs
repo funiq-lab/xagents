@@ -1,4 +1,5 @@
-// use crate::commands::window;
+use crate::commands::window;
+use crate::commands::window::focus_cli_window_public;
 use crate::types::common::{CliLaunchResult, ToolConfig};
 use std::path::Path;
 use std::process::Command;
@@ -48,13 +49,14 @@ pub async fn launch_tool(
             );
             existing_process_pid = Some(pid);
 
-            // match window::focus_ide_window_public(&tool_config.id, pid) {
-            //     Ok(_) => println!("[launcher] Focused existing window {}", pid),
-            //     Err(err) => println!(
-            //         "[launcher] Could not focus existing window {}: {}",
-            //         pid, err
-            //     ),
-            // }
+            // Focus the existing IDE window by executing: code/cursor <project_path>
+            match window::focus_ide_window_public(&tool_config.id, &project_path) {
+                Ok(_) => println!(
+                    "[launcher] Focused existing IDE window for project: {}",
+                    project_path
+                ),
+                Err(err) => println!("[launcher] Could not focus existing IDE window: {}", err),
+            }
         } else {
             launch_ide(&tool_config, &project_path)?;
         }
@@ -69,14 +71,16 @@ pub async fn launch_tool(
             );
             existing_process_pid = Some(pid);
 
-            // Try to focus the CLI terminal window
-            // match window::focus_cli_window_public(pid) {
-            //     Ok(_) => println!("[launcher] Focused existing CLI terminal window {}", pid),
-            //     Err(err) => println!(
-            //         "[launcher] Could not focus CLI terminal window {}: {}",
-            //         pid, err
-            //     ),
-            // }
+            match focus_cli_window_public(pid) {
+                Ok(_) => println!(
+                    "[launcher] Focused existing CLI terminal window for PID {}",
+                    pid
+                ),
+                Err(err) => println!(
+                    "[launcher] Could not focus CLI terminal window {}: {}",
+                    pid, err
+                ),
+            }
         } else {
             // No existing process, launch new one
             launch_cli_tool(&tool_config, &project_path)?;

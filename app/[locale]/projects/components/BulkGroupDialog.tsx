@@ -1,6 +1,6 @@
 'use client'
 
-import type { Group } from '../../db'
+import type { Group } from '@/plugins/db'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'

@@ -1,17 +1,14 @@
 'use client'
 
-import type { NotificationConfig } from '../db'
-import { Check, Save } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import type { NotificationConfig } from '@/plugins/db'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
-import { Separator } from '@/components/ui/separator'
-import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useSettingsStore } from '../stores'
+import { AboutTab } from './components/AboutTab'
+import { NotificationTab } from './components/NotificationTab'
+import { ToolsTab } from './components/ToolsTab'
 
 export default function SettingsPage() {
   const { t } = useTranslation(['global', 'settings'])
@@ -28,12 +25,6 @@ export default function SettingsPage() {
 
   const [localNotificationConfig, setLocalNotificationConfig] = useState<NotificationConfig | null>(null)
   const [isSavingNotifications, setIsSavingNotifications] = useState(false)
-
-  const platformLabel = t(`settings.${platform}` as const)
-  const featureItems = useMemo(
-    () => t('settings.about_features', { returnObjects: true }) as string[],
-    [t],
-  )
 
   // Initialize stores
   useEffect(() => {
@@ -106,233 +97,26 @@ export default function SettingsPage() {
           <TabsTrigger value="about">{t('settings.about')}</TabsTrigger>
         </TabsList>
 
-        {/* Tool configuration */}
-        <TabsContent value="tools" className="space-y-4 overflow-y-auto">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('settings.card_title')}</CardTitle>
-              <CardDescription>
-                {t('settings.tip.card_description', {
-                  platform: platformLabel,
-                })}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* IDE Tools (Built-in, not configurable) */}
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-base font-semibold">
-                    {t('settings.ide_tools_title')}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {t('settings.ide_tools_description')}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="flex items-center gap-3 p-4 rounded-lg border bg-muted/50">
-                    <div className="flex-1">
-                      <p className="font-medium">VSCode</p>
-                      <p className="text-xs text-muted-foreground">code</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 p-4 rounded-lg border bg-muted/50">
-                    <div className="flex-1">
-                      <p className="font-medium">Cursor</p>
-                      <p className="text-xs text-muted-foreground">cursor</p>
-                    </div>
-                  </div>
-                </div>
-
-                <p className="text-xs text-muted-foreground">
-                  {t('settings.ide_tools_note')}
-                </p>
-              </div>
-
-              <Separator />
-
-              {/* CLI Tool Selection */}
-              {availableCliTools.length > 0 && (
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-base font-semibold">
-                      {t('settings.cli_terminal_title')}
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      {t('settings.cli_terminal_description')}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {availableCliTools.map(tool => (
-                      <button
-                        type="button"
-                        key={tool.id}
-                        onClick={() => handleSelectCliTool(tool.id)}
-                        className={`
-                          relative flex items-center gap-3 p-4 rounded-lg border-2 transition-all
-                          ${selectedCliTool?.id === tool.id
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50 hover:bg-accent'}
-                        `}
-                      >
-                        <div className="flex-1 text-left">
-                          <p className="font-medium">{tool.label}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {tool.appName || tool.command}
-                          </p>
-                        </div>
-                        {selectedCliTool?.id === tool.id && (
-                          <Check className="h-5 w-5 text-primary shrink-0" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-
-                  <p className="text-xs text-muted-foreground">
-                    {t('settings.cli_tools_note')}
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        <TabsContent value="tools">
+          <ToolsTab
+            platform={platform}
+            availableCliTools={availableCliTools}
+            selectedCliTool={selectedCliTool}
+            onSelectCliTool={handleSelectCliTool}
+          />
         </TabsContent>
 
-        {/* Notification configuration */}
-        <TabsContent value="notification" className="space-y-4  overflow-y-auto">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('settings.notifications_title')}</CardTitle>
-              <CardDescription>{t('settings.notifications_description')}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Master toggle */}
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>{t('settings.notifications_mainToggle_label')}</Label>
-                  <p className="text-sm text-muted-foreground">
-                    {t('settings.notifications_main_toggle_description')}
-                  </p>
-                </div>
-                <Switch
-                  checked={localNotificationConfig.enabled}
-                  onCheckedChange={checked =>
-                    setLocalNotificationConfig({
-                      ...localNotificationConfig,
-                      enabled: checked,
-                    })}
-                />
-              </div>
-
-              <Separator />
-
-              {/* Notification types */}
-              <div className="space-y-4">
-                <Label>{t('settings.notifications_types_label')}</Label>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="font-normal">
-                      {t('settings.notifications_complete_label')}
-                    </Label>
-                    <p className="text-sm text-muted-foreground">
-                      {t('settings.notifications_complete_description')}
-                    </p>
-                  </div>
-                  <Switch
-                    checked={localNotificationConfig.taskComplete}
-                    onCheckedChange={checked =>
-                      setLocalNotificationConfig({
-                        ...localNotificationConfig,
-                        taskComplete: checked,
-                      })}
-                    disabled={!localNotificationConfig.enabled}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="font-normal">
-                      {t('settings.notifications_failed_label')}
-                    </Label>
-                    <p className="text-sm text-muted-foreground">
-                      {t('settings.notifications_failed_description')}
-                    </p>
-                  </div>
-                  <Switch
-                    checked={localNotificationConfig.taskFailed}
-                    onCheckedChange={checked =>
-                      setLocalNotificationConfig({
-                        ...localNotificationConfig,
-                        taskFailed: checked,
-                      })}
-                    disabled={!localNotificationConfig.enabled}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="font-normal">
-                      {t('settings.notifications_resource_label')}
-                    </Label>
-                    <p className="text-sm text-muted-foreground">
-                      {t('settings.notifications_resource_description')}
-                    </p>
-                  </div>
-                  <Switch
-                    checked={localNotificationConfig.resourceAlert}
-                    onCheckedChange={checked =>
-                      setLocalNotificationConfig({
-                        ...localNotificationConfig,
-                        resourceAlert: checked,
-                      })}
-                    disabled={!localNotificationConfig.enabled}
-                  />
-                </div>
-              </div>
-
-              {/* Save button */}
-              <div className="flex justify-end pt-4">
-                <Button onClick={handleSaveNotificationConfig} disabled={isSavingNotifications}>
-                  <Save className="h-4 w-4 mr-2" />
-                  {isSavingNotifications ? t('global.loading') : t('settings.notifications_save_button')}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="notification">
+          <NotificationTab
+            notificationConfig={localNotificationConfig}
+            onUpdateConfig={setLocalNotificationConfig}
+            onSave={handleSaveNotificationConfig}
+            isSaving={isSavingNotifications}
+          />
         </TabsContent>
 
-        {/* About section */}
         <TabsContent value="about">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('settings.about_title')}</CardTitle>
-              <CardDescription>{t('settings.about_description')}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4  overflow-y-auto">
-              <div className="space-y-2">
-                <p className="text-sm">
-                  <span className="font-semibold">{t('settings.about_version_label')}</span>
-                  {' '}
-                  0.1.0
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {t('settings.about_summary')}
-                </p>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-2">
-                <p className="text-sm font-semibold">{t('settings.about_features_title')}</p>
-                <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                  {featureItems.map(item => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
+          <AboutTab />
         </TabsContent>
       </Tabs>
     </div>

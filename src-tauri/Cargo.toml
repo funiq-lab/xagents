@@ -43,6 +43,10 @@ chrono = "0.4"
 tauri-plugin-notification = "2"
 tauri-plugin-dialog = "2"
 
+# Directory utilities
+dirs = "5.0"
+tauri-plugin-store = "2"
+
 # Unix process signals (Unix only)
 [target.'cfg(unix)'.dependencies]
 nix = { version = "0.27", features = ["signal"] }
