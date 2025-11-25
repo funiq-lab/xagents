@@ -46,6 +46,8 @@
     "launch_success_tip": "{{tool}} started",
     "window_focused": "Window focused",
     "window_focused_tip": "{{tool}} window already exists, focused to it",
+    "focus_window_success": "Window focused successfully",
+    "click_to_focus": "Click to focus window",
     "close_session_success": "Session closed",
     "missing_id": "Project ID is missing.",
     "no_cli_tool_selected": "No terminal tool selected. Please configure in Settings.",

@@ -2,7 +2,7 @@ mod commands;
 mod services;
 mod types;
 
-use commands::{filesystem, launcher, notification, process};
+use commands::{filesystem, launcher, notification, process, window};
 use services::process_monitor::ProcessMonitor;
 use std::sync::Arc;
 use tauri::Manager;
@@ -30,6 +30,7 @@ pub fn run() {
             notification::send_notification,
             filesystem::select_directory,
             filesystem::list_subdirectories,
+            window::focus_window_by_pid,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

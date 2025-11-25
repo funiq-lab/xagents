@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/select'
 import { BUILTIN_AI_CLI_TOOLS, BUILTIN_IDE_TOOLS } from '@/types/tools'
 import { getRandomAccentColor } from '@/utils/colors'
-import { launchAiCLI, launchIDE, listSubdirectories, registerSession, selectDirectory } from '@/utils/tauri'
+import { focusWindowByPid, launchAiCLI, launchIDE, listSubdirectories, registerSession, selectDirectory } from '@/utils/tauri'
 import { cn } from '@/utils/ui'
 import { getActiveSessionByProjectAndTool, initializeDatabase, type Project } from '../db'
 import { useProjectStore, useSessionStore, useSettingsStore } from '../stores'
@@ -427,6 +427,22 @@ export default function ProjectsPage() {
     }
   }
 
+  const handleFocusSession = async (pid: number, toolType: 'ide' | 'cli', toolId: string) => {
+    try {
+      await focusWindowByPid(pid, toolType, toolId)
+      toast.success(t('projects.tip.focus_window_success'))
+    }
+    catch (error) {
+      console.error('[Projects] Focus window failed:', error)
+      toast.error(t('global.action_failed_title'), {
+        description:
+          error instanceof Error
+            ? error.message
+            : t('global.tip.unknown_error'),
+      })
+    }
+  }
+
   const handleBulkImport = useCallback(async () => {
     setIsImporting(true)
     try {
@@ -782,7 +798,9 @@ export default function ProjectsPage() {
                     return (
                       <div
                         key={session.id}
-                        className="flex items-center justify-between bg-secondary/30 rounded-md p-2 text-xs"
+                        className="flex items-center justify-between bg-secondary/30 rounded-md p-2 text-xs hover:bg-secondary/50 transition-colors cursor-pointer"
+                        // onClick={() => session.pid && session.toolType && handleFocusSession(session.pid, session.toolType, session.toolName)}
+                        title={session.pid ? t('projects.tip.click_to_focus') ?? 'Click to focus window' : undefined}
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <MonitorPlay className="w-3 h-3 text-primary shrink-0" />
@@ -803,7 +821,10 @@ export default function ProjectsPage() {
                               variant="ghost"
                               size="icon"
                               className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
-                              onClick={() => handleCloseSession(session.id!)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleCloseSession(session.id!)
+                              }}
                             >
                               <X className="w-3 h-3" />
                             </Button>
