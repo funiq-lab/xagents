@@ -16,6 +16,7 @@ import { BulkDeleteProjectsDialog } from './components/BulkDeleteProjectsDialog'
 import { BulkGroupDialog } from './components/BulkGroupDialog'
 import { BulkTagsDialog } from './components/BulkTagsDialog'
 import { DeleteProjectDialog } from './components/DeleteProjectDialog'
+import { GroupsTagsManagementDialog } from './components/GroupsTagsManagementDialog'
 import { ProjectCard } from './components/ProjectCard'
 import { ProjectDialog } from './components/ProjectDialog'
 import { ProjectHeader } from './components/ProjectHeader'
@@ -49,6 +50,7 @@ export default function ProjectsPage() {
   const [bulkGroupDialogOpen, setBulkGroupDialogOpen] = useState(false)
   const [bulkTagsDialogOpen, setBulkTagsDialogOpen] = useState(false)
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
+  const [managementDialogOpen, setManagementDialogOpen] = useState(false)
   const [editingProject, setEditingProject] = useState<Project | undefined>()
   const [deletingProjectId, setDeletingProjectId] = useState<number | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
@@ -60,8 +62,10 @@ export default function ProjectsPage() {
     tags,
     groups,
     addGroup,
-    addTag,
+    modifyGroup,
     removeGroup,
+    addTag,
+    modifyTag,
     removeTag,
     addProject,
     bulkAddProjects,
@@ -592,6 +596,7 @@ export default function ProjectsPage() {
         selectAllChecked={allVisibleSelected}
         selectAllDisabled={visibleProjectIds.length === 0}
         onToggleSelectAll={handleToggleSelectAllVisible}
+        onManageGroupsTags={() => setManagementDialogOpen(true)}
       />
 
       {selectionCount > 0 && (
@@ -666,8 +671,6 @@ export default function ProjectsPage() {
         onSave={handleSaveProject}
         onCreateGroup={addGroup}
         onCreateTag={addTag}
-        onDeleteGroup={removeGroup}
-        onDeleteTag={removeTag}
       />
 
       {deletingProjectId !== null && (
@@ -700,6 +703,19 @@ export default function ProjectsPage() {
         onOpenChange={setBulkDeleteDialogOpen}
         count={selectionCount}
         onConfirm={handleBulkDeleteSelected}
+      />
+
+      <GroupsTagsManagementDialog
+        open={managementDialogOpen}
+        onOpenChange={setManagementDialogOpen}
+        groups={groups}
+        tags={tags}
+        onCreateGroup={addGroup}
+        onUpdateGroup={modifyGroup}
+        onDeleteGroup={removeGroup}
+        onCreateTag={addTag}
+        onUpdateTag={modifyTag}
+        onDeleteTag={removeTag}
       />
     </div>
   )

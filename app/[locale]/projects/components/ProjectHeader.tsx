@@ -2,7 +2,7 @@
 
 import type { Group, Tag } from '@/plugins/db'
 import type { SortOption } from '@/types/project'
-import { FolderOpen, Plus, Search } from 'lucide-react'
+import { FolderOpen, Plus, Search, Settings } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -33,6 +33,7 @@ interface ProjectHeaderProps {
   selectAllChecked: boolean
   selectAllDisabled: boolean
   onToggleSelectAll: () => void
+  onManageGroupsTags: () => void
 }
 
 export function ProjectHeader({
@@ -52,6 +53,7 @@ export function ProjectHeader({
   selectAllChecked,
   selectAllDisabled,
   onToggleSelectAll,
+  onManageGroupsTags,
 }: ProjectHeaderProps) {
   const { t } = useTranslation(['global', 'projects'])
 
@@ -147,6 +149,15 @@ export function ProjectHeader({
             ))}
           </SelectContent>
         </Select>
+
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={onManageGroupsTags}
+          title={t('projects.manage_groups_tags') ?? undefined}
+        >
+          <Settings className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   )

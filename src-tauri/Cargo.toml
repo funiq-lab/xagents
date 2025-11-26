@@ -1,8 +1,8 @@
 [package]
 name = "xagents"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "a cross-platform desktop application that centralizes multiple AI coding tools (VSCode, Cursor, Claude Code, Codex, etc.) for project organization, session tracking, and process monitoring."
+authors = ["yellin"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

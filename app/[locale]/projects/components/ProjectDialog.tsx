@@ -53,8 +53,6 @@ interface ProjectDialogProps {
   }) => Promise<void>
   onCreateGroup?: (name: string, color: string) => Promise<number>
   onCreateTag?: (name: string, color: string) => Promise<number>
-  onDeleteGroup?: (id: number) => Promise<void>
-  onDeleteTag?: (id: number) => Promise<void>
 }
 
 const formSchema = z.object({
@@ -87,8 +85,6 @@ export function ProjectDialog({
   onSave,
   onCreateGroup,
   onCreateTag,
-  onDeleteGroup,
-  onDeleteTag,
 }: ProjectDialogProps) {
   const isEditMode = !!project
 
@@ -186,39 +182,14 @@ export function ProjectDialog({
     }
   }
 
-  const handleDeleteGroup = async (groupId: number) => {
-    if (!onDeleteGroup)
-      return
-
-    try {
-      await onDeleteGroup(groupId)
-      // If current selected group is deleted, reset to undefined
-      if (form.getValues('groupId') === groupId) {
-        form.setValue('groupId', undefined)
-      }
-      toast.success(t('projects.tip.group_deleted'))
-    }
-    catch (error) {
-      console.error('Delete group failed:', error)
-      toast.error(t('projects.tip.group_delete_failed'))
-    }
+  const handleUnbindGroup = () => {
+    form.setValue('groupId', undefined, { shouldDirty: true })
   }
 
-  const handleDeleteTag = async (tagId: number) => {
-    if (!onDeleteTag)
-      return
-
-    try {
-      await onDeleteTag(tagId)
-      // Remove from current selected tags
-      const current = form.getValues('tagIds') ?? []
-      form.setValue('tagIds', current.filter(id => id !== tagId))
-      toast.success(t('projects.tip.tag_deleted'))
-    }
-    catch (error) {
-      console.error('Delete tag failed:', error)
-      toast.error(t('projects.tip.tag_delete_failed'))
-    }
+  const handleRemoveTag = (tagId: number) => {
+    const current = form.getValues('tagIds') ?? []
+    console.log(current, tagId)
+    form.setValue('tagIds', current.filter(id => id !== tagId), { shouldDirty: true })
   }
 
   const handleSubmit = form.handleSubmit(async (values) => {
@@ -250,7 +221,7 @@ export function ProjectDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[90vw] sm:w-[60vw] max-w-none h-[80vh] flex flex-col">
-        <DialogHeader className="shrink-0">
+        <DialogHeader className="shrink-0 px-2">
           <DialogTitle>
             {isEditMode ? t('projects.edit_project') : t('projects.create_project')}
           </DialogTitle>
@@ -261,10 +232,10 @@ export function ProjectDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-y-auto p-2">
           <Form {...form}>
             <form onSubmit={handleSubmit} className="flex h-full flex-col">
-              <div className="flex-1 space-y-4 overflow-y-auto pr-1">
+              <div className="h-full flex-1 space-y-4">
                 <FormField
                   control={form.control}
                   name="name"
@@ -378,45 +349,42 @@ export function ProjectDialog({
                           )
                         : (
                             <div className="flex gap-2">
-                              <Select
-                                value={field.value ? field.value.toString() : 'none'}
-                                onValueChange={(value) => {
-                                  field.onChange(value === 'none' ? undefined : Number(value))
-                                }}
-                              >
-                                <FormControl>
-                                  <SelectTrigger className="flex-1">
-                                    <SelectValue placeholder={t('projects.project_group_placeholder')} />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="none">{t('projects.no_group')}</SelectItem>
-                                  {groups.map(group => (
-                                    <SelectItem key={group.id} value={group.id!.toString()}>
-                                      <div className="flex items-center justify-between w-full gap-2">
+                              <div className="flex gap-2 flex-1">
+                                <Select
+                                  value={field.value ? field.value.toString() : 'none'}
+                                  onValueChange={(value) => {
+                                    field.onChange(value === 'none' ? undefined : Number(value))
+                                  }}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger className="flex-1">
+                                      <SelectValue placeholder={t('projects.project_group_placeholder')} />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="none">{t('projects.no_group')}</SelectItem>
+                                    {groups.map(group => (
+                                      <SelectItem key={group.id} value={group.id!.toString()}>
                                         <div className="flex items-center gap-2">
                                           <div className="h-2 w-2 rounded-full" style={{ backgroundColor: group.color }} />
                                           {group.name}
                                         </div>
-                                        {onDeleteGroup && (
-                                          <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-5 w-5 opacity-50 hover:opacity-100"
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              handleDeleteGroup(group.id!)
-                                            }}
-                                          >
-                                            <X className="h-3 w-3" />
-                                          </Button>
-                                        )}
-                                      </div>
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                {field.value && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={handleUnbindGroup}
+                                    title={t('projects.tip.unbind_group') ?? undefined}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
                               {onCreateGroup && (
                                 <Button
                                   type="button"
@@ -494,14 +462,19 @@ export function ProjectDialog({
                                 <span onClick={() => toggleTag(tag.id!)}>
                                   {tag.name}
                                 </span>
-                                {onDeleteTag && (
-                                  <X
-                                    className="h-3 w-3 opacity-50 hover:opacity-100"
+                                {tagIds.includes(tag.id!) && (
+                                  <span
                                     onClick={(e) => {
                                       e.stopPropagation()
-                                      handleDeleteTag(tag.id!)
+                                      handleRemoveTag(tag.id!)
                                     }}
-                                  />
+                                  >
+                                    <X
+                                      className="h-3 w-3 opacity-50 hover:opacity-100"
+
+                                    />
+                                  </span>
+
                                 )}
                               </Badge>
                             ))}
@@ -520,20 +493,19 @@ export function ProjectDialog({
                       )}
                 </div>
               </div>
-
-              <DialogFooter className="shrink-0 pt-4">
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                  {t('global.cancel')}
-                </Button>
-                <Button type="submit" disabled={isSaving}>
-                  {isEditMode
-                    ? t('global.save')
-                    : t('global.create')}
-                </Button>
-              </DialogFooter>
             </form>
           </Form>
         </div>
+        <DialogFooter className="flex gap-2 flex-row! justify-end items-center">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            {t('global.cancel')}
+          </Button>
+          <Button type="submit" disabled={isSaving}>
+            {isEditMode
+              ? t('global.save')
+              : t('global.create')}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
