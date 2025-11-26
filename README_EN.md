@@ -95,7 +95,6 @@ Update `src-tauri/tauri.conf.json` for custom icons, identifiers, or multi-arch 
 - **Testing Platform**: All features have been tested and verified only on **macOS**. I primarily use Mac for development, and I don't have immediate access to other platforms, so they're on hold for now.
 - **CLI Window Focus**: The window focus functionality for CLI tools has been tested only with **iTerm2**. While the code includes support for other terminals like Terminal.app and Warp, I haven't tested them yet since I don't use them personally.
 - If you need support for other platforms or encounter any difficulties, feel free to fork the project, submit a PR, or reach out to me directly~
-- No Release packages will be published. If you need them, please build on your own platform.
 
 ## License
 
