@@ -13,7 +13,7 @@ i18next
   .init({
     supportedLngs: languages,
     fallbackLng,
-    lng: 'zh_CN', // let detect the language on client side
+    lng: undefined, // let detect the language on client side
     fallbackNS: defaultNS,
     defaultNS,
     detection: {
