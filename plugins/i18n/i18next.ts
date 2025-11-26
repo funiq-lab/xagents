@@ -17,7 +17,8 @@ i18next
     fallbackNS: defaultNS,
     defaultNS,
     detection: {
-      order: ['path', 'htmlTag', 'navigator'],
+      order: ['path', 'htmlTag', 'cookie', 'localStorage'],
+      caches: ['localStorage', 'cookie'],
     },
     preload: runsOnServerSide ? languages : [],
     nsSeparator: '.',
