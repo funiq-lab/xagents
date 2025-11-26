@@ -6,15 +6,15 @@
   "build": {
     "beforeDevCommand": "pnpm dev",
     "beforeBuildCommand": "pnpm build",
-    "devUrl": "http://localhost:3000/zh_CN",
+    "devUrl": "http://localhost:8888/zh_CN",
     "frontendDist": "../out"
   },
   "app": {
     "windows": [
       {
-        "title": "xagents",
-        "width": 800,
-        "height": 600
+        "title": "XAgents",
+        "width": 1024,
+        "height": 768
       }
     ],
     "security": {

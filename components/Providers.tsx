@@ -4,7 +4,6 @@ import { AppProgressProvider as ProgressProvider } from '@bprogress/next'
 
 import { ThemeProvider } from 'next-themes'
 import { useParams } from 'next/navigation'
-import { CookiesProvider } from 'react-cookie'
 import { I18nextProvider } from 'react-i18next'
 import i18next from '@/plugins/i18n/i18next'
 import { setDayJsLang } from '@/utils/time'
@@ -18,16 +17,16 @@ export default function Providers({ children }: ProvidersProps) {
   const { locale } = useParams()
   setDayJsLang(locale as Locale)
   return (
+
     <I18nextProvider i18n={i18next}>
       <ProgressProvider options={{ showSpinner: false }}>
-        <CookiesProvider>
-          <ThemeProvider attribute="class" enableSystem>
-            <MessageBoxProvider>
-              {children}
-            </MessageBoxProvider>
-          </ThemeProvider>
-        </CookiesProvider>
+        <ThemeProvider attribute="class" enableSystem defaultTheme="light">
+          <MessageBoxProvider>
+            {children}
+          </MessageBoxProvider>
+        </ThemeProvider>
       </ProgressProvider>
     </I18nextProvider>
+
   )
 }

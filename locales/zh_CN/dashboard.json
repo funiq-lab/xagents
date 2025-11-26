@@ -1,0 +1,27 @@
+{
+  "project_label": "项目",
+  "project_helper": "已接入的项目",
+  "cpu_label": "CPU",
+  "cpu_helper": "会话累计占用",
+  "memory_label": "内存",
+  "memory_helper": "会话累计占用",
+  "cpu_title": "CPU",
+  "memory_title": "内存",
+  "column_name": "项目名称",
+  "column_servers": "运行中的服务",
+  "column_cpu": "CPU",
+  "column_memory": "内存",
+  "column_actions": "操作",
+  "servers_fallback": "无",
+  "inspect_aria": "查看项目",
+  "terminate_aria": "关闭会话",
+  "tip": {
+    "close_success_title": "会话已关闭",
+    "close_success_description": "已关闭 {{count}} 个会话。",
+    "close_failed_title": "关闭会话失败",
+    "open_folder_success_title": "已打开项目文件夹",
+    "open_folder_success_description": "已在系统中打开 {{path}}。",
+    "open_folder_failed_title": "打开文件夹失败",
+    "empty_sessions": "暂无活跃会话"
+  }
+}

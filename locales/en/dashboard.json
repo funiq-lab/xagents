@@ -1,0 +1,27 @@
+{
+  "project_label": "Projects",
+  "project_helper": "Tracked projects",
+  "cpu_label": "CPU",
+  "cpu_helper": "Total usage across sessions",
+  "memory_label": "Memory",
+  "memory_helper": "Total usage across sessions",
+  "cpu_title": "CPU",
+  "memory_title": "Memory",
+  "column_name": "Project name",
+  "column_servers": "Opening servers",
+  "column_cpu": "CPU",
+  "column_memory": "Memory",
+  "column_actions": "Actions",
+  "servers_fallback": "None",
+  "inspect_aria": "View project",
+  "terminate_aria": "Close session",
+  "tip": {
+    "close_success_title": "Sessions closed",
+    "close_success_description": "{{count}} session(s) closed.",
+    "close_failed_title": "Failed to close sessions",
+    "open_folder_success_title": "Folder opened",
+    "open_folder_success_description": "Opened {{path}} in your system.",
+    "open_folder_failed_title": "Failed to open folder",
+    "empty_sessions": "No active project sessions"
+  }
+}
