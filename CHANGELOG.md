@@ -2,6 +2,15 @@
 
 ## 0.1.0 · 2025-11-26
 
+### 🐛 修复
+- **生产环境 IDE 启动**：修复在生产环境中无法通过 `code` 和 `cursor` 命令启动 IDE 的问题
+  - 增加 `open -a` 命令回退机制，确保在 PATH 环境变量缺失时也能正常启动
+  - 在 `get_ide_window_pid` 中增加完整路径尝试（如 `/usr/local/bin/code`）
+- **日志系统**：新增文件日志系统，替换所有 `println!` 为 `log::info!` 等宏
+  - 日志输出到 `~/Library/Application Support/com.yellin.xagents/logs/xagents.log`
+  - 实现日志文件大小限制（10MB），超限自动截断
+  - 日志格式：`时间戳 [日志级别] 消息内容`
+
 ### 🚀 新增
 - **项目工作台**：按照项目分组、打标签、支持快速搜索。
 - **一键拉起工具**：IDE 与 CLI 助手均可带上项目路径启动，VSCode/Cursor 支持深度链接。

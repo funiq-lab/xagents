@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "pnpm dev",
     "beforeBuildCommand": "pnpm build",
-    "devUrl": "http://localhost:8888/zh_CN",
+    "devUrl": "http://localhost:8888",
     "frontendDist": "../out"
   },
   "app": {
@@ -14,8 +14,7 @@
       {
         "title": "XAgents",
         "width": 1024,
-        "height": 768,
-        "url": "/zh_CN.html"
+        "height": 768
       }
     ],
     "security": {
@@ -31,6 +30,13 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "entitlements": "Info.plist",
+      "exceptionDomain": null,
+      "frameworks": [],
+      "providerShortName": null,
+      "signingIdentity": null
+    }
   }
 }
