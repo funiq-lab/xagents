@@ -32,19 +32,19 @@ impl ProcessMonitor {
         let mut pids = self.monitored_pids.write().await;
 
         if pids.contains(&pid) {
-            println!("[ProcessMonitor] PID {} already being monitored", pid);
+            log::info!("[ProcessMonitor] PID {} already being monitored", pid);
             return;
         }
 
         pids.insert(pid);
-        println!("[ProcessMonitor] Started monitoring PID {}", pid);
+        log::info!("[ProcessMonitor] Started monitoring PID {}", pid);
     }
 
     /// Remove a PID from monitoring (called when frontend manually closes session)
     pub async fn remove_session(&self, pid: u32) {
         let mut pids = self.monitored_pids.write().await;
         if pids.remove(&pid) {
-            println!("[ProcessMonitor] Stopped monitoring PID {}", pid);
+            log::info!("[ProcessMonitor] Stopped monitoring PID {}", pid);
         }
     }
 
@@ -84,7 +84,7 @@ impl ProcessMonitor {
                         );
                     } else {
                         // Process does not exist, notify frontend
-                        println!("[ProcessMonitor] PID {} no longer exists", pid);
+                        log::info!("[ProcessMonitor] PID {} no longer exists", pid);
                         let _ = app_handle.emit(
                             "process-status-changed",
                             ProcessStatusChangedEvent {

@@ -17,9 +17,12 @@ pub async fn focus_window_by_pid(
     ide_id: String,
     project_path: String,
 ) -> Result<(), String> {
-    println!(
+    log::info!(
         "[window] Focusing {} window for PID: {} (IDE ID: {}, Path: {})",
-        tool_type, pid, ide_id, project_path
+        tool_type,
+        pid,
+        ide_id,
+        project_path
     );
 
     if tool_type == "ide" {
@@ -49,33 +52,63 @@ pub fn focus_cli_window_public(pid: u32) -> Result<(), String> {
 fn focus_ide_window(ide_id: &str, project_path: &str) -> Result<(), String> {
     use std::process::Command;
 
-    println!(
+    log::info!(
         "[window] Focusing IDE window: {} with project path: {}",
-        ide_id, project_path
+        ide_id,
+        project_path
     );
 
-    let command = match ide_id {
-        "vscode" | "code" => "code",
-        "cursor" => "cursor",
+    let (command, app_name) = match ide_id {
+        "vscode" | "code" => ("code", "Visual Studio Code"),
+        "cursor" => ("cursor", "Cursor"),
         _ => return Err(format!("Unsupported IDE: {}", ide_id)),
     };
 
-    let output = Command::new(command)
+    // Try to execute the command directly first
+    let result = Command::new(command).arg(project_path).output();
+
+    match result {
+        Ok(output) if output.status.success() => {
+            log::info!(
+                "[window] ✅ Successfully focused IDE window with {} command",
+                command
+            );
+            return Ok(());
+        }
+        Ok(_output) => {
+            log::info!(
+                "[window] ⚠️ {} command failed, trying fallback with open -a",
+                command
+            );
+        }
+        Err(e) => {
+            log::info!(
+                "[window] ⚠️ {} command not found: {}, trying fallback with open -a",
+                command,
+                e
+            );
+        }
+    }
+
+    // Fallback: Use 'open -a' command which works in production
+    let output = Command::new("open")
+        .arg("-a")
+        .arg(app_name)
         .arg(project_path)
         .output()
-        .map_err(|e| format!("Failed to execute {} command: {}", command, e))?;
+        .map_err(|e| format!("Failed to execute open command: {}", e))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(format!(
-            "Failed to focus IDE window via {} command: {}",
-            command, stderr
+            "Failed to focus IDE window via open command: {}",
+            stderr
         ));
     }
 
-    println!(
-        "[window] ✅ Successfully focused IDE window with {} command",
-        command
+    log::info!(
+        "[window] ✅ Successfully focused IDE window with open -a {} command",
+        app_name
     );
     Ok(())
 }
@@ -84,9 +117,10 @@ fn focus_ide_window(ide_id: &str, project_path: &str) -> Result<(), String> {
 fn focus_ide_window(ide_id: &str, project_path: &str) -> Result<(), String> {
     use std::process::Command;
 
-    println!(
+    log::info!(
         "[window] Focusing IDE window: {} with project path: {}",
-        ide_id, project_path
+        ide_id,
+        project_path
     );
 
     let command = match ide_id {
@@ -108,7 +142,7 @@ fn focus_ide_window(ide_id: &str, project_path: &str) -> Result<(), String> {
         ));
     }
 
-    println!(
+    log::info!(
         "[window] ✅ Successfully focused IDE window with {} command",
         command
     );
@@ -119,9 +153,10 @@ fn focus_ide_window(ide_id: &str, project_path: &str) -> Result<(), String> {
 fn focus_ide_window(ide_id: &str, project_path: &str) -> Result<(), String> {
     use std::process::Command;
 
-    println!(
+    log::info!(
         "[window] Focusing IDE window: {} with project path: {}",
-        ide_id, project_path
+        ide_id,
+        project_path
     );
 
     let command = match ide_id {
@@ -143,7 +178,7 @@ fn focus_ide_window(ide_id: &str, project_path: &str) -> Result<(), String> {
         ));
     }
 
-    println!(
+    log::info!(
         "[window] ✅ Successfully focused IDE window with {} command",
         command
     );
@@ -166,26 +201,28 @@ fn focus_ide_window(_ide_id: &str, _project_path: &str) -> Result<(), String> {
 fn focus_cli_window(pid: u32) -> Result<(), String> {
     use std::process::Command;
 
-    println!("[window] Focusing CLI terminal window for PID: {}", pid);
+    log::info!("[window] Focusing CLI terminal window for PID: {}", pid);
 
     // Walk up the process tree using ps command to find the terminal application
     let (terminal_pid, terminal_name) = find_terminal_process_macos(pid)?;
 
-    println!(
+    log::info!(
         "[window] ✅ Found terminal: {} (PID: {})",
-        terminal_name, terminal_pid
+        terminal_name,
+        terminal_pid
     );
 
-    println!(
+    log::info!(
         "[window] ✅ Found terminal: {} (PID: {})",
-        terminal_name, terminal_pid
+        terminal_name,
+        terminal_pid
     );
 
     // Map terminal process/executable names to AppleScript application names
     // Based on BUILTIN_CLI_TOOLS configuration
     let app_name = if terminal_name.contains("iterm") || terminal_name.contains("iTerm") {
         if let Err(err) = focus_iterm2_session_if_possible(pid) {
-            println!(
+            log::info!(
                 "[window] ⚠️ iTerm2 session focus attempt failed: {}. Falling back to app activation",
                 err
             );
@@ -199,7 +236,7 @@ fn focus_cli_window(pid: u32) -> Result<(), String> {
         "Warp" // Warp
     } else {
         // For unsupported terminals, try generic focus approach
-        println!(
+        log::info!(
             "[window] ⚠️ Unsupported terminal '{}', trying generic focus",
             terminal_name
         );
@@ -223,7 +260,7 @@ end tell
             return Err(format!("Failed to focus terminal window: {}", stderr));
         }
 
-        println!(
+        log::info!(
             "[window] ✅ Successfully focused terminal window with PID {}",
             terminal_pid
         );
@@ -260,9 +297,10 @@ end tell
         return Err(format!("Failed to focus terminal window: {}", stderr));
     }
 
-    println!(
+    log::info!(
         "[window] ✅ Successfully focused terminal window '{}' with PID {}",
-        app_name, terminal_pid
+        app_name,
+        terminal_pid
     );
     Ok(())
 }
@@ -305,9 +343,12 @@ fn find_terminal_process_macos(start_pid: u32) -> Result<(u32, String), String> 
             .map_err(|e| format!("Failed to parse parent PID: {}", e))?;
         let command = parts[1..].join(" ");
 
-        println!(
+        log::info!(
             "[window] [{}] PID {} -> parent PID {}, command: {}",
-            depth, current_pid, parent_pid, command
+            depth,
+            current_pid,
+            parent_pid,
+            command
         );
 
         // Check if this is a supported terminal application
@@ -320,7 +361,7 @@ fn find_terminal_process_macos(start_pid: u32) -> Result<(u32, String), String> 
                        || command_lower.ends_with("warp"); // /Applications/Warp.app/Contents/MacOS/Warp
 
         if is_terminal {
-            println!("[window] ✅ Matched terminal: {}", command);
+            log::info!("[window] ✅ Matched terminal: {}", command);
             return Ok((current_pid, command.to_string()));
         }
 
@@ -342,9 +383,10 @@ fn find_terminal_process_macos(start_pid: u32) -> Result<(u32, String), String> 
 fn focus_iterm2_session_if_possible(cli_pid: u32) -> Result<(), String> {
     let shell_pid = find_shell_process_pid(cli_pid)?;
     let shell_tty = get_tty_for_pid(shell_pid)?;
-    println!(
+    log::info!(
         "[window] Attempting iTerm2 session focus via shell PID {} / {}",
-        shell_pid, shell_tty
+        shell_pid,
+        shell_tty
     );
     focus_iterm2_session(&shell_tty)
 }
@@ -383,15 +425,19 @@ fn find_shell_process_pid(start_pid: u32) -> Result<u32, String> {
             .map_err(|e| format!("Failed to parse parent PID: {}", e))?;
         let command = parts[1..].join(" ");
 
-        println!(
+        log::info!(
             "[window] [shell:{}] PID {} -> parent PID {}, command: {}",
-            depth, current_pid, parent_pid, command
+            depth,
+            current_pid,
+            parent_pid,
+            command
         );
 
         if is_shell_process(&command) {
-            println!(
+            log::info!(
                 "[window] ✅ Matched parent shell process {} for CLI PID {}",
-                command, start_pid
+                command,
+                start_pid
             );
             return Ok(current_pid);
         }
@@ -501,7 +547,7 @@ end tell
         ));
     }
 
-    println!("[window] ✅ Focused iTerm2 session for TTY {}", shell_tty);
+    log::info!("[window] ✅ Focused iTerm2 session for TTY {}", shell_tty);
     Ok(())
 }
 
@@ -509,7 +555,7 @@ end tell
 fn focus_cli_window(pid: u32) -> Result<(), String> {
     use std::process::Command;
 
-    println!(
+    log::info!(
         "[window] Focusing CLI terminal window on Windows for PID {}",
         pid
     );
@@ -566,7 +612,7 @@ public static class Win32 {{
         ));
     }
 
-    println!(
+    log::info!(
         "[window] Successfully focused terminal window for PID {}",
         pid
     );
@@ -577,7 +623,7 @@ public static class Win32 {{
 fn focus_cli_window(pid: u32) -> Result<(), String> {
     use std::process::Command;
 
-    println!(
+    log::info!(
         "[window] Focusing CLI terminal window on Linux for PID {}",
         pid
     );
@@ -585,7 +631,7 @@ fn focus_cli_window(pid: u32) -> Result<(), String> {
     // Walk up the process tree using ps command to find the terminal application
     let (terminal_pid, _terminal_name) = find_terminal_process_linux(pid)?;
 
-    println!("[window] ✅ Found terminal PID: {}", terminal_pid);
+    log::info!("[window] ✅ Found terminal PID: {}", terminal_pid);
 
     // Use wmctrl to focus the terminal window
     let wmctrl_output = Command::new("wmctrl")
@@ -623,7 +669,7 @@ fn focus_cli_window(pid: u32) -> Result<(), String> {
                         return Err(format!("wmctrl -ia failed: {}", stderr));
                     }
 
-                    println!(
+                    log::info!(
                         "[window] ✅ Successfully focused terminal window with PID {}",
                         terminal_pid
                     );
@@ -677,9 +723,12 @@ fn find_terminal_process_linux(start_pid: u32) -> Result<(u32, String), String> 
             .map_err(|e| format!("Failed to parse parent PID: {}", e))?;
         let command = parts[1..].join(" ");
 
-        println!(
+        log::info!(
             "[window] [{}] PID {} -> parent PID {}, command: {}",
-            depth, current_pid, parent_pid, command
+            depth,
+            current_pid,
+            parent_pid,
+            command
         );
 
         // Check if this is a supported terminal application
@@ -688,7 +737,7 @@ fn find_terminal_process_linux(start_pid: u32) -> Result<(u32, String), String> 
         let is_terminal = command_lower.ends_with("gnome-terminal");
 
         if is_terminal {
-            println!("[window] ✅ Matched terminal: {}", command);
+            log::info!("[window] ✅ Matched terminal: {}", command);
             return Ok((current_pid, command.to_string()));
         }
 
