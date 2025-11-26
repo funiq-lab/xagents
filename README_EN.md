@@ -4,6 +4,18 @@
 
 **XAgents** is a cross-platform desktop application that centralizes multiple AI coding tools (VSCode, Cursor, Claude Code, Codex, etc.) for project organization, session tracking, and process monitoring.
 
+## Why I Built This?
+
+During my daily development work, I frequently need to use different AI tools (Cursor, Claude, VSCode, etc.) across multiple projects simultaneously. Each tool spawns numerous windows, and switching between them often leaves me dizzy and confused—it's hard to quickly locate the project window I'm looking for.
+
+To solve this pain point, I created XAgents, which:
+- Centralizes management of all projects and their corresponding tool sessions
+- Enables one-click quick switching to any project window
+- Monitors the running status of each tool in real-time
+- Prevents duplicate opening of the same project
+
+If this tool helps you too, please consider giving it a **Star ⭐️** to show your support!
+
 ## Core Features
 - **Centralized Project Management**: Create, edit, and delete projects with grouping, tagging, and multi-criteria filtering.
 - **One-Click Tool Launch**: Command-level launch plus window switching for VSCode, Cursor, Claude Code, and Codex to avoid duplicate instances.
@@ -16,9 +28,9 @@
 2. Deliver a consistent launch and monitoring experience on macOS, Windows, and Linux.
 3. Leave room to extend support for additional AI tools and custom automation rules.
 
-## Current Progress
-- Completed: Development has not started yet (0%).
-- Pending: Development has not started yet (0%).
+## Changelog
+
+See [CHANGELOG.md](./CHANGELOG.md) for version history.
 
 ## Tech Stack
 
@@ -77,6 +89,13 @@ pnpm tauri build
 - Verify bundles with `pnpm tauri signer verify <bundle>` before uploading to stores or release pages.
 
 Update `src-tauri/tauri.conf.json` for custom icons, identifiers, or multi-arch builds, then rerun `pnpm tauri build`.
+
+## Notes
+
+- **Testing Platform**: All features have been tested and verified only on **macOS**. I primarily use Mac for development, and I don't have immediate access to other platforms, so they're on hold for now.
+- **CLI Window Focus**: The window focus functionality for CLI tools has been tested only with **iTerm2**. While the code includes support for other terminals like Terminal.app and Warp, I haven't tested them yet since I don't use them personally.
+- If you need support for other platforms or encounter any difficulties, feel free to fork the project, submit a PR, or reach out to me directly~
+- No Release packages will be published. If you need them, please build on your own platform.
 
 ## License
 
