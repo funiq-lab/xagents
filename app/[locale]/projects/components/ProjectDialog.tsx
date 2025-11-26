@@ -500,7 +500,7 @@ export function ProjectDialog({
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {t('global.cancel')}
           </Button>
-          <Button type="submit" disabled={isSaving}>
+          <Button type="submit" disabled={isSaving} onClick={handleSubmit}>
             {isEditMode
               ? t('global.save')
               : t('global.create')}

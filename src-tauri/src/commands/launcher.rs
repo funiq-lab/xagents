@@ -123,11 +123,10 @@ pub async fn launch_tool(
             // Wait for process to start
             thread::sleep(Duration::from_millis(1500));
 
-            // Define known CLI tool process names to search for
-            // These are AI coding assistants that can be launched from terminal
-            let tool_names = vec!["claude", "codex", "gemini"];
+            // Use the actual tool name from config
+            let tool_name = &tool_config.display_name;
 
-            match find_cli_process_by_path(&project_path, &tool_names) {
+            match find_cli_process_by_path(&project_path, tool_name) {
                 Some(cli_pid) => {
                     println!("[launcher] Found CLI process PID: {}", cli_pid);
                     Some(cli_pid)
@@ -200,8 +199,7 @@ fn check_existing_cli_process(tool_name: &str, project_path: &str) -> Option<u32
         tool_name, project_path
     );
 
-    let tool_names = vec![tool_name];
-    find_cli_process_by_path(project_path, &tool_names)
+    find_cli_process_by_path(project_path, tool_name)
 }
 
 /// Execute shell command
@@ -406,30 +404,34 @@ end tell
     Ok(())
 }
 
-/// Find CLI process by project path
+/// Find CLI process by tool name and project path
 ///
-/// After launching a CLI tool, search for processes that have the project path
-/// in their command line arguments or working directory.
+/// Strictly match BOTH:
+/// 1. Tool name: Process name/executable/command matches the specific tool
+/// 2. Project path: Process CWD or command line contains the project path
+///
+/// This ensures we only find the exact tool running in the exact project,
+/// avoiding false matches when multiple tools are used in the same project.
 ///
 /// Supported AI coding assistant CLI tools:
 /// - claude: Claude Code CLI
 /// - codex: GitHub Codex CLI
 /// - gemini: Google Gemini CLI
-fn find_cli_process_by_path(project_path: &str, tool_names: &[&str]) -> Option<u32> {
+fn find_cli_process_by_path(project_path: &str, tool_name: &str) -> Option<u32> {
     println!(
-        "[launcher] Searching for CLI process with path: {}",
-        project_path
+        "[launcher] Searching for CLI process: {} in path: {}",
+        tool_name, project_path
     );
-    println!("[launcher] Looking for tool names: {:?}", tool_names);
 
     let mut sys = System::new_all();
     sys.refresh_processes();
 
     let normalized_path = Path::new(project_path)
         .canonicalize()
-        .ok()?
-        .to_string_lossy()
-        .to_string();
+        .ok()?;
+    let normalized_path_str = normalized_path.to_string_lossy().to_string();
+
+    let tool_lower = tool_name.to_lowercase();
 
     // Find the first matching process
     for (pid, process) in sys.processes() {
@@ -440,51 +442,71 @@ fn find_cli_process_by_path(project_path: &str, tool_names: &[&str]) -> Option<u
             .map(|path| path.to_string_lossy().to_lowercase());
         let cmd_line = process.cmd();
         let cmd_line_joined = cmd_line.join(" ");
-        let cmd_line_lower = cmd_line_joined.to_lowercase();
 
-        // Check if the process corresponds to any of the CLI tools by inspecting
-        // the process name, executable path or full command line. Some CLIs
-        // (e.g. claude) run under `node`, so the process name alone is not
-        // sufficient.
-        let matches_tool = tool_names.iter().any(|tool| {
-            let tool_lower = tool.to_lowercase();
-
-            process_name.contains(&tool_lower)
-                || exe_lower
-                    .as_ref()
-                    .map(|exe| exe.contains(&tool_lower))
-                    .unwrap_or(false)
-                || cmd_line_lower.contains(&tool_lower)
-        });
+        // Step 1: Check if this process matches the tool name
+        let matches_tool = 
+            // Exact match: process name equals tool name
+            process_name == tool_lower
+            // OR executable path ends with the tool name
+            || exe_lower
+                .as_ref()
+                .map(|exe| {
+                    exe.ends_with(&format!("/{}", tool_lower))
+                        || exe.ends_with(&format!("\\{}", tool_lower))
+                        || exe == &tool_lower
+                })
+                .unwrap_or(false)
+            // OR command line contains the tool as a standalone argument
+            // (e.g., "node /path/to/claude" or just "claude")
+            || cmd_line.iter().any(|arg| {
+                let arg_lower = arg.to_lowercase();
+                arg_lower == tool_lower
+                    || arg_lower.ends_with(&format!("/{}", tool_lower))
+                    || arg_lower.ends_with(&format!("\\{}", tool_lower))
+            });
 
         if !matches_tool {
             continue;
         }
 
-        // Method 1: Check CWD (current working directory)
+        println!(
+            "[launcher] Found tool process PID={}, name={}, checking path...",
+            pid_u32, process_name
+        );
+
+        // Step 2: Check if this process is running in the target project path
+        // Method 1: Check CWD (current working directory) - most reliable
         if let Some(cwd) = process.cwd() {
-            let cwd_str = cwd.to_string_lossy().to_string();
-            if cwd_str == normalized_path || cwd_str == project_path {
-                println!(
-                    "[launcher] ✅ MATCHED by CWD: PID={}, cwd={}",
-                    pid_u32, cwd_str
-                );
-                return Some(pid_u32);
+            if let Ok(cwd_canonical) = cwd.canonicalize() {
+                if cwd_canonical == normalized_path {
+                    println!(
+                        "[launcher] ✅ MATCHED by CWD: PID={}, tool={}, cwd={}",
+                        pid_u32, tool_name, cwd.display()
+                    );
+                    return Some(pid_u32);
+                }
             }
         }
 
         // Method 2: Check command line arguments (fallback)
-        if cmd_line_joined.contains(&normalized_path) || cmd_line_joined.contains(project_path) {
+        // Some CLIs might have the path in their arguments
+        if cmd_line_joined.contains(&normalized_path_str) || cmd_line_joined.contains(project_path) {
             println!(
-                "[launcher] ✅ MATCHED by cmd: PID={}, cmd={}",
-                pid_u32, cmd_line_joined
+                "[launcher] ✅ MATCHED by cmd: PID={}, tool={}, cmd={}",
+                pid_u32, tool_name, cmd_line_joined
             );
             return Some(pid_u32);
         }
 
-        println!("[launcher] ❌ NO PATH MATCH for PID={}", pid_u32);
+        println!(
+            "[launcher] ❌ Tool matched but path mismatch: PID={}, tool={}",
+            pid_u32, tool_name
+        );
     }
 
-    println!("[launcher] No matching CLI process found");
+    println!(
+        "[launcher] No matching process found for tool={} in path={}",
+        tool_name, project_path
+    );
     None
 }
