@@ -74,7 +74,8 @@ pub async fn apply_config_to_file(
     // Ensure config directory exists
     if let Some(parent) = config_path.parent() {
         if !parent.exists() {
-            fs::create_dir_all(parent).map_err(|e| format!("Failed to create config directory: {}", e))?;
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create config directory: {}", e))?;
         }
     }
 
@@ -115,7 +116,8 @@ pub async fn restore_config_from_backup(
     }
 
     // Restore from backup
-    fs::copy(&backup_file, &config_path).map_err(|e| format!("Failed to restore config file: {}", e))?;
+    fs::copy(&backup_file, &config_path)
+        .map_err(|e| format!("Failed to restore config file: {}", e))?;
 
     Ok(())
 }

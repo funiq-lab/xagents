@@ -426,9 +426,7 @@ fn find_cli_process_by_path(project_path: &str, tool_name: &str) -> Option<u32> 
     let mut sys = System::new_all();
     sys.refresh_processes();
 
-    let normalized_path = Path::new(project_path)
-        .canonicalize()
-        .ok()?;
+    let normalized_path = Path::new(project_path).canonicalize().ok()?;
     let normalized_path_str = normalized_path.to_string_lossy().to_string();
 
     let tool_lower = tool_name.to_lowercase();
@@ -444,7 +442,7 @@ fn find_cli_process_by_path(project_path: &str, tool_name: &str) -> Option<u32> 
         let cmd_line_joined = cmd_line.join(" ");
 
         // Step 1: Check if this process matches the tool name
-        let matches_tool = 
+        let matches_tool =
             // Exact match: process name equals tool name
             process_name == tool_lower
             // OR executable path ends with the tool name
@@ -481,7 +479,9 @@ fn find_cli_process_by_path(project_path: &str, tool_name: &str) -> Option<u32> 
                 if cwd_canonical == normalized_path {
                     println!(
                         "[launcher] ✅ MATCHED by CWD: PID={}, tool={}, cwd={}",
-                        pid_u32, tool_name, cwd.display()
+                        pid_u32,
+                        tool_name,
+                        cwd.display()
                     );
                     return Some(pid_u32);
                 }
@@ -490,7 +490,8 @@ fn find_cli_process_by_path(project_path: &str, tool_name: &str) -> Option<u32> 
 
         // Method 2: Check command line arguments (fallback)
         // Some CLIs might have the path in their arguments
-        if cmd_line_joined.contains(&normalized_path_str) || cmd_line_joined.contains(project_path) {
+        if cmd_line_joined.contains(&normalized_path_str) || cmd_line_joined.contains(project_path)
+        {
             println!(
                 "[launcher] ✅ MATCHED by cmd: PID={}, tool={}, cmd={}",
                 pid_u32, tool_name, cmd_line_joined

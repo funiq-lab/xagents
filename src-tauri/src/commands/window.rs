@@ -184,6 +184,14 @@ fn focus_cli_window(pid: u32) -> Result<(), String> {
     // Map terminal process/executable names to AppleScript application names
     // Based on BUILTIN_CLI_TOOLS configuration
     let app_name = if terminal_name.contains("iterm") || terminal_name.contains("iTerm") {
+        if let Err(err) = focus_iterm2_session_if_possible(pid) {
+            println!(
+                "[window] ⚠️ iTerm2 session focus attempt failed: {}. Falling back to app activation",
+                err
+            );
+        } else {
+            return Ok(());
+        }
         "iTerm" // iTerm2
     } else if terminal_name.contains("terminal") || terminal_name.contains("Terminal") {
         "Terminal" // macOS Terminal
@@ -328,6 +336,173 @@ fn find_terminal_process_macos(start_pid: u32) -> Result<(u32, String), String> 
         "Could not find supported terminal application (Terminal/iTerm/Warp) in process tree"
             .to_string(),
     )
+}
+
+#[cfg(target_os = "macos")]
+fn focus_iterm2_session_if_possible(cli_pid: u32) -> Result<(), String> {
+    let shell_pid = find_shell_process_pid(cli_pid)?;
+    let shell_tty = get_tty_for_pid(shell_pid)?;
+    println!(
+        "[window] Attempting iTerm2 session focus via shell PID {} / {}",
+        shell_pid, shell_tty
+    );
+    focus_iterm2_session(&shell_tty)
+}
+
+#[cfg(target_os = "macos")]
+fn find_shell_process_pid(start_pid: u32) -> Result<u32, String> {
+    let mut current_pid = start_pid;
+    let max_depth = 10;
+
+    for depth in 0..max_depth {
+        let output = Command::new("ps")
+            .args(["-p", &current_pid.to_string(), "-o", "ppid=,comm="])
+            .output()
+            .map_err(|e| format!("Failed to execute ps command: {}", e))?;
+
+        if !output.status.success() {
+            return Err(format!(
+                "ps command failed for PID {}: {}",
+                current_pid,
+                String::from_utf8_lossy(&output.stderr)
+            ));
+        }
+
+        let output_str = String::from_utf8_lossy(&output.stdout);
+        let parts: Vec<&str> = output_str.trim().split_whitespace().collect();
+
+        if parts.len() < 2 {
+            return Err(format!(
+                "Invalid ps output format for PID {}: {}",
+                current_pid, output_str
+            ));
+        }
+
+        let parent_pid: u32 = parts[0]
+            .parse()
+            .map_err(|e| format!("Failed to parse parent PID: {}", e))?;
+        let command = parts[1..].join(" ");
+
+        println!(
+            "[window] [shell:{}] PID {} -> parent PID {}, command: {}",
+            depth, current_pid, parent_pid, command
+        );
+
+        if is_shell_process(&command) {
+            println!(
+                "[window] ✅ Matched parent shell process {} for CLI PID {}",
+                command, start_pid
+            );
+            return Ok(current_pid);
+        }
+
+        if parent_pid == 0 || parent_pid == 1 {
+            break;
+        }
+
+        current_pid = parent_pid;
+    }
+
+    Err("Could not locate parent shell process for CLI session".to_string())
+}
+
+#[cfg(target_os = "macos")]
+fn is_shell_process(command: &str) -> bool {
+    let cmd_lower = command.to_lowercase();
+    let last_component = cmd_lower.rsplit('/').next().unwrap_or(&cmd_lower);
+    matches!(
+        last_component,
+        "zsh" | "bash" | "sh" | "fish" | "tcsh" | "csh" | "ksh" | "nu"
+    ) || last_component.ends_with("sh")
+}
+
+#[cfg(target_os = "macos")]
+fn get_tty_for_pid(pid: u32) -> Result<String, String> {
+    let output = Command::new("ps")
+        .args(["-p", &pid.to_string(), "-o", "tty="])
+        .output()
+        .map_err(|e| format!("Failed to execute ps command: {}", e))?;
+
+    if !output.status.success() {
+        return Err(format!(
+            "ps tty lookup failed for PID {}: {}",
+            pid,
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+
+    let tty_raw = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+    if tty_raw.is_empty() || tty_raw == "?" {
+        return Err(format!("TTY not available for PID {}", pid));
+    }
+
+    if tty_raw.starts_with("/dev/") {
+        Ok(tty_raw)
+    } else {
+        Ok(format!("/dev/{}", tty_raw))
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn focus_iterm2_session(shell_tty: &str) -> Result<(), String> {
+    let short_tty = shell_tty.strip_prefix("/dev/").unwrap_or(shell_tty);
+    let script = format!(
+        r#"
+tell application "iTerm2"
+    set targetTTY to "{shell_tty}"
+    set targetTTYShort to "{short_tty}"
+    set didMatch to false
+    repeat with win in windows
+        repeat with tabItem in tabs of win
+            repeat with sessionItem in sessions of tabItem
+                try
+                    set sessionTTY to tty of sessionItem
+                    if sessionTTY is equal to targetTTY or sessionTTY is equal to targetTTYShort then
+                        tell win
+                            select
+                            set current tab to tabItem
+                            set frontmost to true
+                        end tell
+                        tell tabItem to select
+                        tell sessionItem to select
+                        activate
+                        set didMatch to true
+                        exit repeat
+                    end if
+                on error errMsg number errNum
+                    -- Ignore sessions lacking tty
+                end try
+            end repeat
+            if didMatch then exit repeat
+        end repeat
+        if didMatch then exit repeat
+    end repeat
+    if not didMatch then
+        error "Session for TTY " & targetTTY & " not found"
+    end if
+end tell
+"#,
+        shell_tty = shell_tty.replace('"', "\\\""),
+        short_tty = short_tty.replace('"', "\\\""),
+    );
+
+    let output = Command::new("osascript")
+        .arg("-e")
+        .arg(&script)
+        .output()
+        .map_err(|e| format!("Failed to execute iTerm AppleScript: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!(
+            "AppleScript failed to focus iTerm2 session: {}",
+            stderr.trim()
+        ));
+    }
+
+    println!("[window] ✅ Focused iTerm2 session for TTY {}", shell_tty);
+    Ok(())
 }
 
 #[cfg(target_os = "windows")]

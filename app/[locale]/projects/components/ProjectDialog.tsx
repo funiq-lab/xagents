@@ -188,7 +188,6 @@ export function ProjectDialog({
 
   const handleRemoveTag = (tagId: number) => {
     const current = form.getValues('tagIds') ?? []
-    console.log(current, tagId)
     form.setValue('tagIds', current.filter(id => id !== tagId), { shouldDirty: true })
   }
 
