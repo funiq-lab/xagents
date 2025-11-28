@@ -153,6 +153,7 @@ export function ProjectCard({
             const cpu = resource?.cpuUsage ?? 0
             const memory = resource?.memoryUsage ?? 0
             const toolLabel = toolLabelMap.get(session.toolName) ?? session.toolName
+            const hasWindowPid = session.hasWindowPid !== false // Default to true for backward compatibility
 
             return (
               <div
@@ -171,16 +172,27 @@ export function ProjectCard({
                 <div className="flex items-center gap-2 min-w-0">
                   <MonitorPlay className="w-3 h-3 text-primary shrink-0" />
                   <span className="font-medium truncate capitalize">{toolLabel}</span>
+                  {!hasWindowPid && (
+                    <span className="text-muted-foreground text-[10px] ml-1">
+                      (
+                      {t('projects.tip.redirect_only')}
+                      )
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
-                  <div className="flex items-center gap-1 text-muted-foreground">
-                    <Cpu className="w-3 h-3" />
-                    {cpu ? `${cpu.toFixed(2)}%` : '--'}
-                  </div>
-                  <div className="flex items-center gap-1 text-muted-foreground">
-                    <HardDrive className="w-3 h-3" />
-                    {memory ? formatMemory(memory) : '--'}
-                  </div>
+                  {hasWindowPid && (
+                    <>
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <Cpu className="w-3 h-3" />
+                        {cpu ? `${cpu.toFixed(2)}%` : '--'}
+                      </div>
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <HardDrive className="w-3 h-3" />
+                        {memory ? formatMemory(memory) : '--'}
+                      </div>
+                    </>
+                  )}
                   {session.id && (
                     <Button
                       type="button"

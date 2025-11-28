@@ -7,6 +7,7 @@ export interface CreateSessionInput {
   toolType: 'ide' | 'cli'
   startTime: number
   pid: number
+  hasWindowPid?: boolean // True if pid is window PID, false if fallback to parent process
 }
 
 export async function createSession(data: CreateSessionInput): Promise<number> {

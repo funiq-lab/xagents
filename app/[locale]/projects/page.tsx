@@ -326,13 +326,20 @@ export default function ProjectsPage() {
         toolName: ideTool.id,
         toolType: 'ide',
         pid: result.pid,
+        hasWindowPid: result.hasWindowPid,
         startTime: result.startTime,
       })
 
-      // Register session to process monitor if PID is available
-      if (result.pid) {
+      // Register session to process monitor only if we have window PID
+      if (result.pid && result.hasWindowPid) {
         console.info('[Projects] Registering new session to monitor (pid):', result.pid)
         await registerSession(result.pid, result.startTime)
+      }
+      else if (result.pid && !result.hasWindowPid) {
+        console.info('[Projects] Skipping monitor registration - using parent process PID:', result.pid)
+        toast.info(t('projects.tip.window_pid_not_found'), {
+          description: t('projects.tip.window_pid_not_found_detail', { tool: ideTool.label }),
+        })
       }
 
       toast.success(t('projects.tip.launch_success'), {
@@ -371,13 +378,17 @@ export default function ProjectsPage() {
         toolName: aiTool.id,
         toolType: 'cli',
         pid: result.pid,
+        hasWindowPid: result.hasWindowPid,
         startTime: result.startTime,
       })
 
-      // Register session to process monitor if PID is available
-      if (result.pid) {
+      // Register session to process monitor only if we have valid PID
+      if (result.pid && result.hasWindowPid) {
         console.info('[Projects] Registering session to monitor (pid):', result.pid)
         await registerSession(result.pid, result.startTime)
+      }
+      else if (result.pid && !result.hasWindowPid) {
+        console.info('[Projects] Skipping monitor registration for CLI fallback PID:', result.pid)
       }
 
       toast.success(t('projects.tip.launch_success'), {
