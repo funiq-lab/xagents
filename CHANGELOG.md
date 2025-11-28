@@ -1,5 +1,25 @@
 # 更新日志
 
+## 0.1.1 · 2025-11-28
+
+### 🐛 修复
+- **窗口 PID 获取回退方案**：修复 `--status` 命令获取窗口进程 ID 不稳定的问题
+  - 增加 `find_ide_main_process()` 函数，在无法获取窗口 PID 时回退到主进程 PID
+  - 添加 `hasWindowPid` 标志，区分窗口进程和主进程
+  - 前端根据标志条件性注册进程监控和显示 CPU/Memory 指标
+  - 回退模式下隐藏资源监控，仅提供窗口跳转功能
+  - UI 提示用户"仅跳转"状态，提升用户体验
+
+### 🛠 改进
+- **进程监控优化**：只有在获取到精确窗口 PID 时才注册进程监控
+- **用户提示增强**：在无法获取窗口 PID 时显示 Toast 通知和内联提示
+- **数据结构完善**：
+  - `CliLaunchResult` 添加 `has_window_pid` 字段
+  - `ProcessSession` 添加 `hasWindowPid` 字段
+  - `CreateSessionInput` 添加 `hasWindowPid` 字段
+
+---
+
 ## 0.1.0 · 2025-11-26
 
 ### 🐛 修复
