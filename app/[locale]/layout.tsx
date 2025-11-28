@@ -1,4 +1,3 @@
-import { Roboto } from 'next/font/google'
 import { notFound } from 'next/navigation'
 import React from 'react'
 import { AppSidebar } from '@/components/AppSidebar'
@@ -9,15 +8,11 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Toaster } from '@/components/ui/sonner'
 import i18nConfig from '@/i18nConfig'
 import { languages } from '@/plugins/i18n/settings'
+import '@fontsource/roboto/300.css'
+import '@fontsource/roboto/400.css'
+import '@fontsource/roboto/500.css'
+import '@fontsource/roboto/700.css'
 import './globals.css'
-
-export const roboto = Roboto({
-  weight: ['300', '400', '500', '700'],
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-roboto',
-  preload: true,
-})
 
 export const viewport = {
   width: 'device-width',
@@ -47,7 +42,7 @@ export default async function RootLayout({
 
   return (
     <React.StrictMode>
-      <html lang={locale} className={roboto.variable} suppressHydrationWarning>
+      <html lang={locale} suppressHydrationWarning>
         <body className="w-full h-svh overflow-hidden">
           <Providers>
             <SidebarProvider defaultOpen={false}>
@@ -57,7 +52,6 @@ export default async function RootLayout({
                 {children}
               </SidebarInset>
             </SidebarProvider>
-            {children}
           </Providers>
           <EventListeners />
           <Toaster richColors position="top-right" />
