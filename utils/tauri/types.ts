@@ -4,6 +4,7 @@ export interface LaunchResult {
   startTime: number
   pid: number
   isExistingWindow: boolean // True if focused existing window, false if new launch
+  hasWindowPid: boolean // True if pid is actual window PID, false if fallback to parent process
 }
 
 export interface ProcessStatus {

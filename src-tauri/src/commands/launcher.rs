@@ -40,7 +40,7 @@ pub async fn launch_tool(
         project_path
     );
 
-    let mut existing_process_pid: Option<u32> = None;
+    let existing_process_pid: Option<u32> = None;
 
     // Launch based on tool type
     if tool_config.tool_type == "ide" {
@@ -50,7 +50,6 @@ pub async fn launch_tool(
                 pid,
                 project_path
             );
-            existing_process_pid = Some(pid);
 
             // Focus the existing IDE window by executing: code/cursor <project_path>
             match window::focus_ide_window_public(&tool_config.id, &project_path) {
@@ -67,6 +66,7 @@ pub async fn launch_tool(
                 start_time: current_time,
                 pid: Some(pid),
                 is_existing_window: true,
+                has_window_pid: true, // Existing window always has window PID
             });
         } else {
             launch_ide(&tool_config, &project_path)?;
@@ -81,7 +81,6 @@ pub async fn launch_tool(
                 pid,
                 project_path
             );
-            existing_process_pid = Some(pid);
 
             // Try to focus the existing CLI terminal window
             match focus_cli_window_public(pid) {
@@ -102,6 +101,7 @@ pub async fn launch_tool(
                 start_time: current_time,
                 pid: Some(pid),
                 is_existing_window: true,
+                has_window_pid: true, // CLI process PID is always valid
             });
         } else {
             // No existing process, launch new one
@@ -112,35 +112,49 @@ pub async fn launch_tool(
     let current_time = chrono::Utc::now().timestamp();
 
     // For IDE tools, try to get window PID for resource monitoring
-    let pid = if tool_config.tool_type == "ide" {
+    let (pid, has_window_pid) = if tool_config.tool_type == "ide" {
         if let Some(pid) = existing_process_pid {
             log::info!("[launcher] Using existing IDE window PID: {}", pid);
-            Some(pid)
+            (Some(pid), true)
         } else {
             match tool_config.id.as_str() {
                 "vscode" | "cursor" => {
-                    // Wait for IDE to open the window (increased from 2s to 3s)
+                    // Wait for IDE to open the window (increased from 2s to 5s)
                     thread::sleep(Duration::from_millis(5000));
 
                     match get_ide_window_pid(&tool_config.id, &project_path) {
                         Ok(window_pid) => {
                             log::info!("[launcher] Found IDE window PID: {}", window_pid);
-                            Some(window_pid)
+                            (Some(window_pid), true)
                         }
                         Err(e) => {
                             log::warn!("[launcher] Could not find IDE window PID: {}", e);
-                            None
+                            
+                            // Fallback: try to get main process PID for basic redirect functionality
+                            match find_ide_main_process(&tool_config.id) {
+                                Some(main_pid) => {
+                                    log::info!(
+                                        "[launcher] Using main process PID as fallback: {}",
+                                        main_pid
+                                    );
+                                    (Some(main_pid), false) // has_window_pid = false
+                                }
+                                None => {
+                                    log::warn!("[launcher] Could not find main process either, monitoring disabled");
+                                    (None, false)
+                                }
+                            }
                         }
                     }
                 }
-                _ => None,
+                _ => (None, false),
             }
         }
     } else if tool_config.tool_type == "cli" {
         // CLI tools: use existing process PID if found, otherwise try to find it
         if let Some(pid) = existing_process_pid {
             log::info!("[launcher] Using existing CLI process PID: {}", pid);
-            Some(pid)
+            (Some(pid), true)
         } else {
             // Wait for process to start
             thread::sleep(Duration::from_millis(5000));
@@ -151,23 +165,24 @@ pub async fn launch_tool(
             match find_cli_process_by_path(&project_path, tool_name) {
                 Some(cli_pid) => {
                     log::info!("[launcher] Found CLI process PID: {}", cli_pid);
-                    Some(cli_pid)
+                    (Some(cli_pid), true)
                 }
                 None => {
                     log::warn!("[launcher] Could not find CLI process, monitoring disabled");
-                    None
+                    (None, false)
                 }
             }
         }
     } else {
-        None
+        (None, false)
     };
 
     let is_existing_window = existing_process_pid.is_some();
 
     log::info!(
-        "[launcher] Launch completed - PID: {:?}, Existing: {}",
+        "[launcher] Launch completed - PID: {:?}, HasWindowPid: {}, Existing: {}",
         pid,
+        has_window_pid,
         is_existing_window
     );
 
@@ -175,6 +190,7 @@ pub async fn launch_tool(
         start_time: current_time,
         pid,
         is_existing_window,
+        has_window_pid,
     })
 }
 
@@ -501,6 +517,46 @@ end tell
         app_name
     );
     Ok(())
+}
+
+/// Find IDE main process by tool ID
+///
+/// This is a fallback method when we can't get the window PID via --status command.
+/// Returns the main process PID for VSCode or Cursor.
+///
+/// Note: This PID is for the main/parent process, not a specific window.
+/// It can only be used for basic redirect functionality, not for accurate resource monitoring.
+fn find_ide_main_process(ide_id: &str) -> Option<u32> {
+    log::info!("[launcher] Searching for main process of IDE: {}", ide_id);
+
+    let mut sys = System::new_all();
+    sys.refresh_processes();
+
+    let process_names = match ide_id {
+        "vscode" => vec!["code", "Code", "Visual Studio Code"],
+        "cursor" => vec!["cursor", "Cursor"],
+        _ => return None,
+    };
+
+    // Find any process matching the IDE name
+    for (pid, process) in sys.processes() {
+        let process_name = process.name();
+        
+        for name in &process_names {
+            if process_name.contains(name) {
+                let pid_u32 = pid.as_u32();
+                log::info!(
+                    "[launcher] Found main process: PID={}, name={}",
+                    pid_u32,
+                    process_name
+                );
+                return Some(pid_u32);
+            }
+        }
+    }
+
+    log::warn!("[launcher] No main process found for IDE: {}", ide_id);
+    None
 }
 
 /// Find CLI process by tool name and project path

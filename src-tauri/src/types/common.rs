@@ -17,8 +17,9 @@ pub struct ToolConfig {
 #[serde(rename_all = "camelCase")]
 pub struct CliLaunchResult {
     pub start_time: i64,          // Unix timestamp (seconds)
-    pub pid: Option<u32>,         // Window PID for supported IDEs (vscode/cursor)
+    pub pid: Option<u32>,         // Window PID for supported IDEs (vscode/cursor), or parent process PID as fallback
     pub is_existing_window: bool, // True if focused existing window, false if new launch
+    pub has_window_pid: bool,     // True if pid is actual window PID, false if fallback to parent process
 }
 
 /// Process status information

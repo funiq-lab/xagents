@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
+import packageInfo from '../../../../package.json'
 
 export function AboutTab() {
   const { t } = useTranslation(['global', 'settings'])
@@ -25,7 +26,7 @@ export function AboutTab() {
             <p className="text-sm">
               <span className="font-semibold">{t('settings.about_version_label')}</span>
               {' '}
-              0.1.0
+              {packageInfo.version}
             </p>
             <p className="text-sm text-muted-foreground">
               {t('settings.about_summary')}

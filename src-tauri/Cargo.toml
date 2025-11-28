@@ -1,6 +1,6 @@
 [package]
 name = "xagents"
-version = "0.1.0"
+version = "0.1.1"
 description = "a cross-platform desktop application that centralizes multiple AI coding tools (VSCode, Cursor, Claude Code, Codex, etc.) for project organization, session tracking, and process monitoring."
 authors = ["yellin"]
 edition = "2021"

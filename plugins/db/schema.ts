@@ -31,6 +31,7 @@ export interface ProcessSession {
   toolName: string
   toolType: 'ide' | 'cli'
   pid: number
+  hasWindowPid?: boolean // True if pid is window PID, false if fallback to parent process
   status: 'running' | 'completed' | 'closed'
   startTime: number
   endTime?: number
